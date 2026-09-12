@@ -23,8 +23,8 @@ function resetForToday(state: FamilyState): FamilyState {
   return { ...state, dayKey: currentDay, habitCompletions: {}, people: state.people.map((person) => ({ ...person, health: { sleptWell: false, hydrated: false, feelingOkay: false } })) };
 }
 function normaliseState(raw: FamilyState): FamilyState {
-  const flowMap = new Map(raw.flows?.map((flow) => [flow.id, flow]) ?? []);
-  const habitMap = new Map(raw.habits?.map((habit) => [habit.id, habit]) ?? []);
+  const flowMap = new Map(raw.flows?.map((flow) => [flow.id, flow] as const) ?? []);
+  const habitMap = new Map(raw.habits?.map((habit) => [habit.id, habit] as const) ?? []);
   return resetForToday({
     ...initialState, ...raw,
     people: raw.people ?? [], nextUp: raw.nextUp ?? [], habitCompletions: raw.habitCompletions ?? {},
@@ -50,6 +50,11 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
       }
     })();
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => setState((current) => resetForToday(current)), 60000);
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
