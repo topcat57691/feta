@@ -1,15 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   avatarColors, defaultFlows, defaultHabits, FamilyState, FlowId, HealthKey, HouseholdFlow,
   nextFlowState, PersonStatus, Priority, todayKey,
 } from './model';
+import { fetchRemoteState, isRemoteConfigured, pushRemoteState, SyncStatus } from './remote';
 
 const STORAGE_KEY = 'feta.family-state.v1';
 const initialState: FamilyState = { people: [], habits: defaultHabits, habitCompletions: {}, flows: defaultFlows, nextUp: [], dayKey: todayKey() };
 
 interface FamilyContextValue {
-  state: FamilyState; ready: boolean;
+  state: FamilyState; ready: boolean; syncStatus: SyncStatus;
   addPerson(name: string): void; togglePersonActive(personId: string): void; setCurrentPerson(personId?: string): void;
   setStatus(personId: string, status: PersonStatus): void; setEnergy(personId: string, energy: number): void; toggleHealth(personId: string, key: HealthKey): void;
   toggleHabit(personId: string, habitId: string): void; advanceFlow(flowId: FlowId): void;
@@ -36,6 +37,10 @@ function normaliseState(raw: FamilyState): FamilyState {
 export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<FamilyState>(initialState);
   const [ready, setReady] = useState(false);
+  const [remoteReady, setRemoteReady] = useState(!isRemoteConfigured());
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(isRemoteConfigured() ? 'connecting' : 'local');
+  const remoteRevision = useRef<string>();
+  const applyingRemote = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,8 +66,68 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     if (ready) AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state)).catch(() => undefined);
   }, [ready, state]);
 
+  useEffect(() => {
+    if (!ready || !isRemoteConfigured()) return;
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setInterval> | undefined;
+
+    const pull = async (initial = false) => {
+      try {
+        const remote = await fetchRemoteState();
+        if (cancelled) return;
+        if (remote) {
+          if (initial || remote.updated_at !== remoteRevision.current) {
+            remoteRevision.current = remote.updated_at;
+            applyingRemote.current = true;
+            setState(normaliseState(remote.state));
+          }
+        } else if (initial) {
+          const created = await pushRemoteState(state);
+          if (cancelled) return;
+          remoteRevision.current = created.updated_at;
+        }
+        setSyncStatus('synced');
+      } catch {
+        if (!cancelled) setSyncStatus('offline');
+      }
+    };
+
+    (async () => {
+      setSyncStatus('connecting');
+      await pull(true);
+      if (!cancelled) {
+        setRemoteReady(true);
+        pollTimer = setInterval(() => { void pull(false); }, 5000);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
+    };
+    // The initial local state is intentionally captured once; later changes are pushed by the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+
+  useEffect(() => {
+    if (!ready || !remoteReady || !isRemoteConfigured()) return;
+    if (applyingRemote.current) {
+      applyingRemote.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      pushRemoteState(state)
+        .then((row) => {
+          remoteRevision.current = row.updated_at;
+          setSyncStatus('synced');
+        })
+        .catch(() => setSyncStatus('offline'));
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [ready, remoteReady, state]);
+
   const value = useMemo<FamilyContextValue>(() => ({
-    state, ready,
+    state, ready, syncStatus,
     addPerson(name) {
       const clean = name.trim(); if (!clean) return;
       setState((current) => {
@@ -126,7 +191,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     removeNextUp(itemId) {
       setState((current) => ({ ...current, nextUp: current.nextUp.filter((item) => item.id !== itemId) }));
     },
-  }), [ready, state]);
+  }), [ready, state, syncStatus]);
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;
 }
