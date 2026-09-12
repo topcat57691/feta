@@ -43,10 +43,13 @@ export async function fetchRemoteState(): Promise<RemoteRow | null> {
 
 export async function pushRemoteState(state: FamilyState): Promise<RemoteRow> {
   if (!isRemoteConfigured() || !supabaseUrl || !householdId) throw new Error('Remote sync is not configured');
+
+  // Device identity is deliberately local. Everything else is household state.
+  const sharedState: FamilyState = { ...state, currentPersonId: undefined };
   const response = await fetch(`${supabaseUrl}/rest/v1/household_state?on_conflict=household_id`, {
     method: 'POST',
     headers: requestHeaders({ Prefer: 'resolution=merge-duplicates,return=representation' }),
-    body: JSON.stringify([{ household_id: householdId, state }]),
+    body: JSON.stringify([{ household_id: householdId, state: sharedState }]),
   });
   if (!response.ok) throw new Error(`Remote write failed (${response.status})`);
   const rows = (await response.json()) as RemoteRow[];
