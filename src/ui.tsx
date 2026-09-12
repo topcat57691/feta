@@ -40,9 +40,10 @@ export function StatusPill({ person }: { person: Person }) {
 
 export function ProgressBar({ value, color = palette.green, height = 9 }: { value: number; color?: string; height?: number }) {
   const safe = Math.max(0, Math.min(100, value));
+  const width = `${safe}%` as `${number}%`;
   return (
     <View style={[styles.progressTrack, { height, borderRadius: height / 2 }]}> 
-      <View style={{ width: `${safe}%`, height: '100%', borderRadius: height / 2, backgroundColor: color }} />
+      <View style={{ width, height: '100%', borderRadius: height / 2, backgroundColor: color }} />
     </View>
   );
 }
