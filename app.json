@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "FETA",
+    "slug": "feta",
+    "version": "0.1.0",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F4F7F6",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F4F7F6"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
