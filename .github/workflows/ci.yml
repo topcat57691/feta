@@ -16,3 +16,4 @@ jobs:
       - run: npm install
       - run: npx expo install --check
       - run: npm run typecheck
+      - run: npx expo export --platform web --output-dir dist
