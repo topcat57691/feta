@@ -39,7 +39,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [remoteReady, setRemoteReady] = useState(!isRemoteConfigured());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(isRemoteConfigured() ? 'connecting' : 'local');
-  const remoteRevision = useRef<string>();
+  const remoteRevision = useRef<string | undefined>(undefined);
   const applyingRemote = useRef(false);
 
   useEffect(() => {
