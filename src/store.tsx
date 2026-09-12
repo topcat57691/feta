@@ -79,7 +79,8 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
           if (initial || remote.updated_at !== remoteRevision.current) {
             remoteRevision.current = remote.updated_at;
             applyingRemote.current = true;
-            setState(normaliseState(remote.state));
+            const householdState = normaliseState(remote.state);
+            setState((current) => ({ ...householdState, currentPersonId: current.currentPersonId }));
           }
         } else if (initial) {
           const created = await pushRemoteState(state);
