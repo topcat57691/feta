@@ -1,0 +1,12 @@
+{
+  "name": "FETA — Family Everything Tracker App",
+  "short_name": "FETA",
+  "start_url": "/me",
+  "display": "standalone",
+  "background_color": "#f7f3eb",
+  "theme_color": "#f7f3eb",
+  "description": "The calm state of your household at a glance.",
+  "icons": [
+    { "src": "/feta-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
