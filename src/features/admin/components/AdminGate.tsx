@@ -12,13 +12,14 @@ export function AdminGate({ children }: { children: ReactNode }) {
   const [error, setError] = useState('');
   if (!state) return null;
   if (unlocked) return <>{children}</>;
+  const adminPinHash = state.adminPinHash;
 
   async function submit() {
-    if (!state.adminPinHash) {
+    if (!adminPinHash) {
       if (pin.length!==4 || pin!==confirm) { setError('Use matching 4-digit PINs.'); return; }
       await setAdminPin(pin); sessionStorage.setItem('feta.admin.unlocked','yes'); setUnlocked(true); return;
     }
-    if (await matchesPin(pin,state.adminPinHash)) { sessionStorage.setItem('feta.admin.unlocked','yes'); setUnlocked(true); return; }
+    if (await matchesPin(pin,adminPinHash)) { sessionStorage.setItem('feta.admin.unlocked','yes'); setUnlocked(true); return; }
     setError('That PIN did not match.');
   }
 
