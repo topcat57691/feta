@@ -13,6 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm install --global npm@11.21.2
       - run: npm install
       - run: npm run typecheck
       - run: npm test
