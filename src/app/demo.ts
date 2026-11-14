@@ -12,7 +12,7 @@ export async function createDemoHousehold(): Promise<HouseholdState> {
   const people: Person[] = [
     { id: 'tristan', name: 'Tristan', pinHash, color: '#bdd7ec', availability: 'in-zone', capacity: 4, presence: 'home', daily: { date: today, sleptOkay: true, feelingOkay: true, vitamins: false }, updatedAt: new Date().toISOString() },
     { id: 'sarah', name: 'Sarah', pinHash, color: '#cfe3bf', availability: 'free', capacity: 5, presence: 'home', daily: { date: today, sleptOkay: true, feelingOkay: true, vitamins: true }, updatedAt: new Date().toISOString() },
-    { id: 'leo', name: 'Leo', pinHash, color: '#f2d69b', availability: 'free', capacity: 3, presence: 'out', daily: { date: today, sleptOkay: true, feelingOkay: true, vitamins: true }, updatedAt: new Date().toISOString() },
+    { id: 'leo', name: 'Leo', pinHash, color: '#f2d69b', availability: 'out', capacity: 3, presence: 'out', daily: { date: today, sleptOkay: true, feelingOkay: true, vitamins: true }, updatedAt: new Date().toISOString() },
   ];
   const events: JobEvent[] = [
     { id: 'e1', jobId: 'bathroom', personId: 'sarah', occurredAt: ago(6), quantity: 1 },

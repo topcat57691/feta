@@ -5,7 +5,7 @@ import { useAppStore } from '../../app/store';
 import { Card } from '../../components/ui/Card';
 import { Pill } from '../../components/ui/Pill';
 import { PersonCard } from '../../features/people/components/PersonCard';
-import { selectJobAttention } from '../../features/cadence/cadence';
+import { calculateJobPressure, selectJobAttention } from '../../features/cadence/cadence';
 import { flowDefinitions, getFlowStateDefinition } from '../../features/flows/flowDefinitions';
 import { HouseholdTimeline } from '../../features/timeline/HouseholdTimeline';
 import { formatCadence, relativeTime } from '../../lib/date';
@@ -67,7 +67,10 @@ export function HousePage() {
           })}
           {state.jobs.filter((job) => job.enabled).slice(0,5).map((job) => {
             const last = state.events.filter((event) => event.jobId === job.id).sort((a,b) => b.occurredAt.localeCompare(a.occurredAt))[0];
-            return <div className="state-row" key={job.id}><span className="state-row__icon">{job.icon}</span><strong>{job.name}</strong><span className="state-row__detail">{last ? relativeTime(last.occurredAt, now) : formatCadence(job.cadence.rate, job.cadence.period, job.kind)}</span></div>;
+            const pressure = calculateJobPressure(job, state.events, now);
+            const stateLabel = pressure.urgency === 'calm' ? 'Fine' : pressure.urgency === 'soon' ? 'Soon' : 'Now';
+            const detail = last ? `${stateLabel} · ${relativeTime(last.occurredAt, now)}` : `${stateLabel} · ${formatCadence(job.cadence.rate, job.cadence.period, job.kind)}`;
+            return <div className="state-row" key={job.id}><span className="state-row__icon">{job.icon}</span><strong>{job.name}</strong><span className="state-row__detail">{detail}</span></div>;
           })}
         </div>
       </Card>

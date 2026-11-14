@@ -9,7 +9,6 @@ import { nextFlowStateId } from '../features/flows/flowDefinitions';
 import { createDemoHousehold } from './demo';
 
 const COLORS = ['#bdd7ec', '#cfe3bf', '#f2d69b', '#e2c9e8', '#f0c6bb', '#bfe0d7'];
-
 type CheckKey = 'sleptOkay' | 'feelingOkay' | 'vitamins';
 
 interface StoreValue {
@@ -30,7 +29,6 @@ interface StoreValue {
   setAdminPin(pin: string): Promise<void>;
   reset(): void;
 }
-
 const StoreContext = createContext<StoreValue | null>(null);
 
 function normalizeDaily(person: Person): Person {
@@ -45,6 +43,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => householdRepository.subscribeHousehold((next) => setStateRaw(next)), []);
 
+  useEffect(() => {
+    const refreshDailyChecks = () => {
+      setStateRaw((current) => {
+        if (!current) return current;
+        const people = current.people.map(normalizeDaily);
+        if (people.every((person, index) => person === current.people[index])) return current;
+        const next = { ...current, people };
+        householdRepository.saveHousehold(next);
+        return next;
+      });
+    };
+    refreshDailyChecks();
+    const timer = window.setInterval(refreshDailyChecks, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const persist = useCallback((next: HouseholdState) => {
     setStateRaw(next);
     householdRepository.saveHousehold(next);
@@ -58,73 +72,38 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const createHousehold = useCallback(async (name: string, personName: string, pin: string) => {
     const id = makeId('person');
     const person: Person = {
-      id,
-      name: personName.trim(),
-      pinHash: await hashPin(pin),
-      color: COLORS[0],
-      availability: 'free',
-      capacity: 3,
-      presence: 'home',
-      daily: { date: todayKey(), sleptOkay: false, feelingOkay: false, vitamins: false },
-      updatedAt: new Date().toISOString(),
+      id, name: personName.trim(), pinHash: await hashPin(pin), color: COLORS[0], availability: 'free', capacity: 3, presence: 'home',
+      daily: { date: todayKey(), sleptOkay: false, feelingOkay: false, vitamins: false }, updatedAt: new Date().toISOString(),
     };
-    const next: HouseholdState = {
-      version: 1,
-      householdName: name.trim() || 'Home',
-      people: [person],
-      jobs: [],
-      events: [],
-      flowStates: [
-        { flowId: 'dishwasher', stateId: 'empty', updatedAt: new Date().toISOString() },
-        { flowId: 'laundry', stateId: 'clear', updatedAt: new Date().toISOString() },
-      ],
-    };
-    persist(next);
-    setCurrentPerson(id);
+    const next: HouseholdState = { version: 1, householdName: name.trim() || 'Home', people: [person], jobs: [], events: [], flowStates: [
+      { flowId: 'dishwasher', stateId: 'empty', updatedAt: new Date().toISOString() },
+      { flowId: 'laundry', stateId: 'clear', updatedAt: new Date().toISOString() },
+    ] };
+    persist(next); setCurrentPerson(id);
   }, [persist, setCurrentPerson]);
 
   const loadDemo = useCallback(async () => {
-    const next = await createDemoHousehold();
-    persist(next);
-    setCurrentPerson(next.people[0].id);
+    const next = await createDemoHousehold(); persist(next); setCurrentPerson(next.people[0].id);
   }, [persist, setCurrentPerson]);
 
   const addPerson = useCallback(async (name: string, pin: string) => {
     if (!state) return;
-    const person: Person = {
-      id: makeId('person'),
-      name: name.trim(),
-      pinHash: await hashPin(pin),
-      color: COLORS[state.people.length % COLORS.length],
-      availability: 'free',
-      capacity: 3,
-      presence: 'home',
-      daily: { date: todayKey(), sleptOkay: false, feelingOkay: false, vitamins: false },
-      updatedAt: new Date().toISOString(),
-    };
+    const person: Person = { id: makeId('person'), name: name.trim(), pinHash: await hashPin(pin), color: COLORS[state.people.length % COLORS.length], availability: 'free', capacity: 3, presence: 'home', daily: { date: todayKey(), sleptOkay: false, feelingOkay: false, vitamins: false }, updatedAt: new Date().toISOString() };
     persist({ ...state, people: [...state.people, person] });
   }, [persist, state]);
 
   const updatePerson = useCallback((id: string, patch: Partial<Pick<Person, 'availability' | 'capacity' | 'presence'>>) => {
     if (!state) return;
-    persist({
-      ...state,
-      people: state.people.map((person) =>
-        person.id === id ? { ...normalizeDaily(person), ...patch, updatedAt: new Date().toISOString() } : person
-      ),
-    });
+    persist({ ...state, people: state.people.map((person) => person.id === id ? { ...normalizeDaily(person), ...patch, updatedAt: new Date().toISOString() } : person) });
   }, [persist, state]);
 
   const toggleDaily = useCallback((id: string, key: CheckKey) => {
     if (!state) return;
-    persist({
-      ...state,
-      people: state.people.map((person) => {
-        if (person.id !== id) return person;
-        const fresh = normalizeDaily(person);
-        return { ...fresh, daily: { ...fresh.daily, [key]: !fresh.daily[key] }, updatedAt: new Date().toISOString() };
-      }),
-    });
+    persist({ ...state, people: state.people.map((person) => {
+      if (person.id !== id) return person;
+      const fresh = normalizeDaily(person);
+      return { ...fresh, daily: { ...fresh.daily, [key]: !fresh.daily[key] }, updatedAt: new Date().toISOString() };
+    }) });
   }, [persist, state]);
 
   const completeJob = useCallback((jobId: string, personId: string, quantity = 1) => {
@@ -140,9 +119,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     if (!state) return;
     const events = state.events.map((event) => event.id === eventId ? { ...event, leftTooLong: true } : event);
     const affected = state.events.find((event) => event.id === eventId);
-    const jobs = affected
-      ? state.jobs.map((job) => job.id === affected.jobId ? { ...job, cadence: learnCadence(job, events) } : job)
-      : state.jobs;
+    const jobs = affected ? state.jobs.map((job) => job.id === affected.jobId ? { ...job, cadence: learnCadence(job, events) } : job) : state.jobs;
     persist({ ...state, events, jobs });
   }, [persist, state]);
 
@@ -169,54 +146,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     persist({ ...state, adminPinHash: await hashPin(pin) });
   }, [persist, state]);
 
-  const reset = useCallback(() => {
-    householdRepository.clear();
-    sessionStorage.removeItem('feta.admin.unlocked');
-    setStateRaw(null);
-    setCurrentPersonIdRaw(undefined);
-  }, []);
+  const reset = useCallback(() => { householdRepository.clear(); sessionStorage.removeItem('feta.admin.unlocked'); setStateRaw(null); setCurrentPersonIdRaw(undefined); }, []);
 
-  const currentPerson = useMemo(
-    () => state?.people.find((person) => person.id === currentPersonId),
-    [state, currentPersonId],
-  );
-
-  const value = useMemo<StoreValue>(() => ({
-    state,
-    currentPerson,
-    currentPersonId,
-    setCurrentPerson,
-    createHousehold,
-    loadDemo,
-    addPerson,
-    updatePerson,
-    toggleDaily,
-    completeJob,
-    markEventLeftTooLong,
-    advanceFlow,
-    addJob,
-    updateJob,
-    setAdminPin,
-    reset,
-  }), [
-    state,
-    currentPerson,
-    currentPersonId,
-    setCurrentPerson,
-    createHousehold,
-    loadDemo,
-    addPerson,
-    updatePerson,
-    toggleDaily,
-    completeJob,
-    markEventLeftTooLong,
-    advanceFlow,
-    addJob,
-    updateJob,
-    setAdminPin,
-    reset,
-  ]);
-
+  const currentPerson = useMemo(() => state?.people.find((person) => person.id === currentPersonId), [state, currentPersonId]);
+  const value = useMemo<StoreValue>(() => ({ state, currentPerson, currentPersonId, setCurrentPerson, createHousehold, loadDemo, addPerson, updatePerson, toggleDaily, completeJob, markEventLeftTooLong, advanceFlow, addJob, updateJob, setAdminPin, reset }), [state, currentPerson, currentPersonId, setCurrentPerson, createHousehold, loadDemo, addPerson, updatePerson, toggleDaily, completeJob, markEventLeftTooLong, advanceFlow, addJob, updateJob, setAdminPin, reset]);
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
@@ -226,9 +159,4 @@ export function useAppStore(): StoreValue {
   return value;
 }
 
-export const availabilityLabels: Record<Availability, string> = {
-  'in-zone': 'In the zone',
-  free: 'Free',
-  drained: 'Drained',
-  out: 'Out',
-};
+export const availabilityLabels: Record<Availability, string> = { 'in-zone': 'In the zone', free: 'Free', drained: 'Drained', out: 'Out' };
