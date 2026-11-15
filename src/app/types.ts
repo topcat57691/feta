@@ -14,7 +14,6 @@ export interface DailyChecks {
 export interface Person {
   id: string;
   name: string;
-  pinHash: string;
   color: string;
   availability: Availability;
   capacity: 1 | 2 | 3 | 4 | 5;
@@ -70,14 +69,25 @@ export interface FlowState {
   updatedBy?: string;
 }
 
+export interface FlowEvent {
+  id: string;
+  flowId: string;
+  fromStateId: string;
+  toStateId: string;
+  personId: string;
+  occurredAt: string;
+}
+
 export interface HouseholdState {
   version: 1;
+  householdId: string;
   householdName: string;
-  adminPinHash?: string;
+  adminPinSet: boolean;
   people: Person[];
   jobs: JobDefinition[];
   events: JobEvent[];
   flowStates: FlowState[];
+  flowEvents: FlowEvent[];
 }
 
 export interface DeviceState {

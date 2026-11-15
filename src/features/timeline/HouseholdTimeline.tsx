@@ -1,20 +1,32 @@
 import { useMemo } from 'react';
 import type { HouseholdState } from '../../app/types';
 import { calculateJobPressure } from '../cadence/cadence';
+import { flowDefinitions } from '../flows/flowDefinitions';
 import { DAY_MS } from '../../lib/date';
 
 export function HouseholdTimeline({ state }: { state: HouseholdState }) {
   const markers = useMemo(() => {
     const now = Date.now();
-    const past = state.events
+    const jobPast = state.events
       .filter((event) => now - new Date(event.occurredAt).getTime() <= 7 * DAY_MS)
-      .sort((a,b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime())
-      .slice(-7)
       .map((event) => {
         const job = state.jobs.find((candidate) => candidate.id === event.jobId);
         const delta = (now - new Date(event.occurredAt).getTime()) / (7 * DAY_MS);
-        return { id: event.id, icon: job?.icon ?? '✓', label: job?.name ?? 'Done', left: Math.max(2, 50 - delta * 46), side: 'past' as const };
+        return { id: event.id, occurredAt: event.occurredAt, icon: job?.icon ?? '✓', label: job?.name ?? 'Done', left: Math.max(2, 50 - delta * 46), side: 'past' as const };
       });
+
+    const flowPast = state.flowEvents
+      .filter((event) => now - new Date(event.occurredAt).getTime() <= 7 * DAY_MS)
+      .map((event) => {
+        const flow = flowDefinitions.find((candidate) => candidate.id === event.flowId);
+        const delta = (now - new Date(event.occurredAt).getTime()) / (7 * DAY_MS);
+        return { id: event.id, occurredAt: event.occurredAt, icon: flow?.icon ?? '↻', label: flow?.name ?? 'Flow', left: Math.max(2, 50 - delta * 46), side: 'past' as const };
+      });
+
+    const past = [...jobPast, ...flowPast]
+      .sort((a,b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime())
+      .slice(-8);
+
     const future = state.jobs.filter((job) => job.enabled).map((job) => ({ job, pressure: calculateJobPressure(job, state.events) }))
       .filter(({ pressure }) => pressure.dueAt)
       .sort((a,b) => a.pressure.dueAt!.getTime() - b.pressure.dueAt!.getTime())
