@@ -58,7 +58,7 @@ class HouseholdRepository {
       );
     }
     if (response.status === 204) return undefined as T;
-    return response.json<T>();
+    return await response.json() as T;
   }
 
   async loadHousehold(): Promise<HouseholdState | null> {
