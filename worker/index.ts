@@ -18,6 +18,7 @@ import {
   updatePerson,
 } from './db';
 import { createPinSalt, hashPin, validPin, verifyPin } from './pin';
+import { ensureSchema } from './schema';
 import type { D1Database, Env } from './types';
 
 const DEFAULT_COLOR = '#bdd7ec';
@@ -93,6 +94,9 @@ export default {
     const db = dbOrResponse;
 
     try {
+      stage = 'schema:ensure';
+      await ensureSchema(db);
+
       if (request.method === 'GET' && path === '/api/health') {
         const household = await findHousehold(db);
         return json({ ok: true, database: 'd1', householdConfigured: Boolean(household) });
