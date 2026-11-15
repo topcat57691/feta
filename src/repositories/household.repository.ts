@@ -16,8 +16,11 @@ export class HouseholdApiError extends Error {
     public readonly status: number,
     public readonly code: string,
     message: string,
+    public readonly requestId?: string,
+    public readonly stage?: string,
   ) {
-    super(message);
+    const diagnostic = requestId ? ` [${stage ?? code} · ${requestId.slice(0, 8)}]` : '';
+    super(`${message}${diagnostic}`);
   }
 }
 
@@ -50,11 +53,18 @@ class HouseholdRepository {
 
     const response = await fetch(path, { ...init, headers });
     if (!response.ok) {
-      const payload = await response.json().catch(() => ({})) as { code?: string; message?: string };
+      const payload = await response.json().catch(() => ({})) as {
+        code?: string;
+        message?: string;
+        requestId?: string;
+        stage?: string;
+      };
       throw new HouseholdApiError(
         response.status,
         payload.code ?? 'REQUEST_FAILED',
         payload.message ?? `FETA request failed with ${response.status}`,
+        payload.requestId,
+        payload.stage,
       );
     }
     if (response.status === 204) return undefined as T;
