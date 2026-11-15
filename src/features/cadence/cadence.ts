@@ -1,5 +1,5 @@
 import type { AttentionItem, JobDefinition, JobEvent } from '../../app/types';
-import { cadencePeriodDays, DAY_MS, nextWeekday } from '../../lib/date';
+import { cadencePeriodDays, DAY_MS, nextWeekday, startOfDay } from '../../lib/date';
 
 function median(values: number[]): number {
   if (!values.length) return 0;
@@ -68,7 +68,15 @@ export function calculateJobPressure(job: JobDefinition, events: JobEvent[], now
     .sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
 
   if (job.kind === 'calendar') {
-    const dueAt = nextWeekday(job.calendarDay ?? 3, now);
+    let dueAt = nextWeekday(job.calendarDay ?? 3, now);
+    const last = relevant[0];
+    const dueDayStart = startOfDay(dueAt);
+    const todayStart = startOfDay(now);
+    const isDueToday = dueDayStart.getTime() === todayStart.getTime();
+    const completedToday = last && new Date(last.occurredAt).getTime() >= todayStart.getTime();
+    if (isDueToday && completedToday) {
+      dueAt = new Date(dueAt.getTime() + 7 * DAY_MS);
+    }
     const days = Math.max(0, (dueAt.getTime() - now.getTime()) / DAY_MS);
     const score = days <= 0.25 ? 1.1 : days <= 1.5 ? 0.82 : Math.max(0.05, 0.55 - days * 0.08);
     return {

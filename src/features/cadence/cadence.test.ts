@@ -38,4 +38,25 @@ describe('cadence learning', () => {
     expect(pressure.urgency).toBe('now');
     expect(pressure.score).toBeCloseTo(1, 1);
   });
+
+  it('moves a calendar job to next week after it is completed today', () => {
+    const calendarJob: JobDefinition = {
+      ...sessionJob,
+      id: 'bins',
+      kind: 'calendar',
+      calendarDay: 0,
+      cadence: { rate: 1, period: 'week', mode: 'manual' },
+    };
+    const now = new Date('2026-11-15T12:00:00');
+    const completed: JobEvent = {
+      id: 'bins-done',
+      jobId: 'bins',
+      personId: 'p1',
+      quantity: 1,
+      occurredAt: new Date('2026-11-15T09:00:00').toISOString(),
+    };
+    const pressure = calculateJobPressure(calendarJob, [completed], now);
+    expect(pressure.urgency).toBe('calm');
+    expect(pressure.dueAt?.getDate()).toBe(22);
+  });
 });
