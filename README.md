@@ -48,31 +48,17 @@ There is deliberately only **one hosted FETA database**. Local development uses 
 npx wrangler login
 ```
 
-### 2. Create the database
+### 2. Database binding
 
-```bash
-npm run db:create
-```
-
-Wrangler will print the D1 database UUID.
-
-### 3. Put that UUID in `wrangler.jsonc`
-
-Replace:
+The D1 database already exists and is bound in `wrangler.jsonc` as:
 
 ```text
-00000000-0000-0000-0000-000000000000
+DB → feta
 ```
 
-with the real database ID returned by Cloudflare.
+The committed database ID is `188a8e92-7d15-4d52-8168-58c24929dc26`.
 
-The binding name must remain:
-
-```text
-DB
-```
-
-### 4. Apply the schema
+### 3. Apply the schema
 
 ```bash
 npm run db:migrate
@@ -80,7 +66,7 @@ npm run db:migrate
 
 This applies `db/migrations/0001_initial.sql`.
 
-### 5. Deploy
+### 4. Deploy
 
 ```bash
 npm run deploy
@@ -89,11 +75,10 @@ npm run deploy
 For Cloudflare Workers Builds, use:
 
 - **Build command:** `npm run build`
-- **Deploy command:** `npx wrangler deploy`
+- **Deploy command:** `npm run db:migrate && npx wrangler deploy`
 - **Preview command:** `npx wrangler preview`
 - **Production branch:** `main`
 
-Do not merge/deploy a commit that still contains the placeholder D1 database UUID.
 
 ## Local development
 

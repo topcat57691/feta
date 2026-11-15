@@ -14,7 +14,7 @@
     {
       "binding": "DB",
       "database_name": "feta",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "188a8e92-7d15-4d52-8168-58c24929dc26",
       "migrations_dir": "db/migrations"
     }
   ]

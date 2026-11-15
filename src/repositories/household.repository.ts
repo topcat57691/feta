@@ -67,12 +67,15 @@ class HouseholdRepository {
       this.cache(state);
       return state;
     } catch (error) {
-      if (error instanceof HouseholdApiError && error.status === 404) {
-        this.cache(null);
-        return null;
+      if (error instanceof HouseholdApiError) {
+        if (error.status === 404) {
+          this.cache(null);
+          return null;
+        }
+        throw error;
       }
       const cached = this.cached();
-      if (cached) return cached;
+      if (cached?.householdId && Array.isArray(cached.flowEvents)) return cached;
       throw error;
     }
   }
