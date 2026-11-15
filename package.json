@@ -10,11 +10,12 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "test:watch": "vitest",
-    "deploy": "npm run build && npm run db:migrate && wrangler deploy",
+    "deploy": "npm run build && wrangler deploy",
     "db:create": "wrangler d1 create feta",
-    "db:migrate": "wrangler d1 migrations apply feta --remote",
+    "db:migrate": "node -e \"console.log('Remote D1 schema is bootstrapped by the Worker binding; skipping build-time migration.')\"",
     "db:migrate:local": "wrangler d1 migrations apply feta --local",
-    "check:worker": "wrangler deploy --dry-run --outdir .wrangler-dry-run"
+    "check:worker": "wrangler deploy --dry-run --outdir .wrangler-dry-run",
+    "db:migrate:remote": "wrangler d1 migrations apply feta --remote"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

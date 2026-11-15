@@ -136,3 +136,20 @@ This is intentionally small and relational. Completion/event history is the evid
 ## Operational scope
 
 This is a family POC, not a multi-tenant SaaS. There is no dev/staging/prod database split, no user-account provider, and no separate API deployment. If FETA later becomes multi-household/public, authentication and household authorization should be revisited before expanding access.
+
+
+## D1 deployment note
+
+FETA deliberately does **not** require the Cloudflare Workers Builds token to run D1 administration commands.
+
+The Worker checks for the v1 schema through its bound `DB` resource and creates the tables/indexes idempotently on the first API request when they are missing. This keeps the normal Workers Builds deploy token least-privileged.
+
+The Cloudflare dashboard Deploy command may remain:
+
+```bash
+npm run db:migrate && npx wrangler deploy
+```
+
+The `db:migrate` script is intentionally a build-safe no-op; `db:migrate:remote` remains available for explicit manual Wrangler migrations when authenticated with D1 Write access.
+
+Worker Previews use the same D1 database because this personal app intentionally has one hosted environment. Do not use a preview branch for destructive data testing.

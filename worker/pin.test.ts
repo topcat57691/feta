@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { createPinSalt, hashPin, validPin, verifyPin } from './pin';
 
 describe('PIN hashing', () => {
-  it('uses a unique salt and verifies the original PIN', async () => {
+  it('uses a unique salt, versioned hash and verifies the original PIN', async () => {
     const saltA = createPinSalt();
     const saltB = createPinSalt();
     expect(saltA).not.toBe(saltB);
 
     const hash = await hashPin('4827', saltA);
+    expect(hash).toMatch(/^pbkdf2-sha256\$10000\$/);
     expect(await verifyPin('4827', saltA, hash)).toBe(true);
     expect(await verifyPin('4828', saltA, hash)).toBe(false);
   });

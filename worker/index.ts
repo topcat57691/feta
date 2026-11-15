@@ -18,6 +18,7 @@ import {
   updatePerson,
 } from './db';
 import { createPinSalt, hashPin, validPin, verifyPin } from './pin';
+import { ensureSchema } from './schema';
 import type { D1Database, Env } from './types';
 
 const DEFAULT_COLOR = '#bdd7ec';
@@ -32,8 +33,13 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-function error(status: number, code: string, message: string): Response {
-  return json({ message, code }, status);
+function error(
+  status: number,
+  code: string,
+  message: string,
+  diagnostics?: { requestId?: string; stage?: string },
+): Response {
+  return json({ message, code, ...diagnostics }, status);
 }
 
 async function body<T>(request: Request): Promise<T> {
@@ -78,6 +84,8 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
+    const requestId = crypto.randomUUID();
+    let stage = 'route';
 
     if (!path.startsWith('/api/')) return env.ASSETS.fetch(request);
 
@@ -86,6 +94,9 @@ export default {
     const db = dbOrResponse;
 
     try {
+      stage = 'schema:ensure';
+      await ensureSchema(db);
+
       if (request.method === 'GET' && path === '/api/health') {
         const household = await findHousehold(db);
         return json({ ok: true, database: 'd1', householdConfigured: Boolean(household) });
@@ -96,13 +107,19 @@ export default {
       }
 
       if (request.method === 'POST' && path === '/api/setup') {
+        stage = 'setup:parse';
         const input = await body<{ householdName?: string; personName?: string; pin?: string; color?: string }>(request);
         if (!input.personName?.trim()) return error(400, 'PERSON_NAME_REQUIRED', 'Your name is required.');
         if (!validPin(input.pin)) return error(400, 'PIN_INVALID', 'Use a 4-digit PIN.');
+
+        stage = 'setup:check-household';
         if (await findHousehold(db)) return error(409, 'HOUSEHOLD_EXISTS', 'This FETA database already has a household.');
 
+        stage = 'setup:hash-pin';
         const salt = createPinSalt();
         const pinHash = await hashPin(input.pin, salt);
+
+        stage = 'setup:create-household';
         const personId = await createHousehold(db, {
           householdName: input.householdName?.trim() || 'Home',
           personName: input.personName.trim(),
@@ -110,16 +127,21 @@ export default {
           pinSalt: salt,
           personColor: input.color || DEFAULT_COLOR,
         });
+
+        stage = 'setup:read-household';
         const state = await readHousehold(db, localDate(request));
         return json({ state, personId }, 201);
       }
 
       if (request.method === 'POST' && path === '/api/demo') {
+        stage = 'demo:check-household';
         if (await findHousehold(db)) return error(409, 'HOUSEHOLD_EXISTS', 'This FETA database already has a household.');
+        stage = 'demo:seed';
         const personId = await seedDemo(db, async () => {
           const salt = createPinSalt();
           return { salt, hash: await hashPin('1234', salt) };
         });
+        stage = 'demo:read-household';
         const state = await readHousehold(db, localDate(request));
         return json({ state, personId }, 201);
       }
@@ -245,8 +267,21 @@ export default {
         return error(409, message, 'An admin PIN has already been configured.');
       }
       if (message === 'INVALID_JSON') return error(400, message, 'Expected a JSON request body.');
-      console.error('FETA API error', caught);
-      return error(500, 'INTERNAL_ERROR', 'FETA could not complete that change.');
+      console.error('FETA API error', {
+        requestId,
+        stage,
+        method: request.method,
+        path,
+        errorName: caught instanceof Error ? caught.name : typeof caught,
+        errorMessage: message,
+        stack: caught instanceof Error ? caught.stack : undefined,
+      });
+      return error(
+        500,
+        'INTERNAL_ERROR',
+        'FETA could not complete that change.',
+        { requestId, stage },
+      );
     }
   },
 };
