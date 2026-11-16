@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { Availability, HouseholdState, JobDefinition, Person } from './types';
+import type { Availability, FlowDefinition, HouseholdState, JobDefinition, Person } from './types';
 import { householdRepository } from '../repositories/household.repository';
 
 const COLORS = ['#bdd7ec', '#cfe3bf', '#f2d69b', '#e2c9e8', '#f0c6bb', '#bfe0d7'];
@@ -30,6 +30,9 @@ interface StoreValue {
   completeJob(jobId: string, personId: string, quantity?: number): Promise<string>;
   markEventLeftTooLong(eventId: string): Promise<void>;
   advanceFlow(flowId: string, personId: string): Promise<void>;
+  addFlow(flow: Omit<FlowDefinition, 'id'>): Promise<void>;
+  updateFlow(flowId: string, flow: Omit<FlowDefinition, 'id'>): Promise<void>;
+  deleteFlow(flowId: string): Promise<void>;
   addJob(job: Omit<JobDefinition, 'id' | 'createdAt'>): Promise<void>;
   updateJob(jobId: string, patch: Partial<JobDefinition>): Promise<void>;
   setAdminPin(pin: string): Promise<void>;
@@ -122,6 +125,18 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     rememberState(await householdRepository.advanceFlow(flowId, personId));
   }, [rememberState]);
 
+  const addFlow = useCallback(async (flow: Omit<FlowDefinition, 'id'>) => {
+    rememberState(await householdRepository.addFlow(flow));
+  }, [rememberState]);
+
+  const updateFlow = useCallback(async (id: string, flow: Omit<FlowDefinition, 'id'>) => {
+    rememberState(await householdRepository.updateFlow(id, flow));
+  }, [rememberState]);
+
+  const deleteFlow = useCallback(async (id: string) => {
+    rememberState(await householdRepository.deleteFlow(id));
+  }, [rememberState]);
+
   const addJob = useCallback(async (job: Omit<JobDefinition, 'id' | 'createdAt'>) => {
     rememberState(await householdRepository.addJob(job));
   }, [rememberState]);
@@ -173,6 +188,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     completeJob,
     markEventLeftTooLong,
     advanceFlow,
+    addFlow,
+    updateFlow,
+    deleteFlow,
     addJob,
     updateJob,
     setAdminPin,
@@ -195,6 +213,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     completeJob,
     markEventLeftTooLong,
     advanceFlow,
+    addFlow,
+    updateFlow,
+    deleteFlow,
     addJob,
     updateJob,
     setAdminPin,
