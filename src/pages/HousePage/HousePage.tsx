@@ -8,6 +8,7 @@ import { PersonCard } from '../../features/people/components/PersonCard';
 import { calculateJobPressure, selectJobAttention } from '../../features/cadence/cadence';
 import { flowDefinitions, flowTiming, getFlowStateDefinition } from '../../features/flows/flowDefinitions';
 import { HouseholdTimeline } from '../../features/timeline/HouseholdTimeline';
+import { UpcomingCalendar } from '../../features/timeline/UpcomingCalendar';
 import { formatCadence, relativeTime } from '../../lib/date';
 
 function urgencyTone(urgency: 'now'|'soon') { return urgency === 'now' ? 'amber' : 'blue'; }
@@ -80,6 +81,7 @@ export function HousePage() {
       </Card>
     </div>
 
+    <UpcomingCalendar />
     <HouseholdTimeline state={state} />
   </div>;
 }

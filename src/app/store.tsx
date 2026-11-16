@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { Availability, FlowDefinition, HouseholdState, JobDefinition, Person } from './types';
+import type { Availability, CalendarEvent, FlowDefinition, HouseholdState, JobDefinition, Person } from './types';
 import { householdRepository } from '../repositories/household.repository';
 
 const COLORS = ['#bdd7ec', '#cfe3bf', '#f2d69b', '#e2c9e8', '#f0c6bb', '#bfe0d7'];
@@ -28,6 +28,7 @@ interface StoreValue {
   updatePerson(id: string, patch: Partial<Pick<Person, 'availability' | 'capacity' | 'presence'>>): Promise<void>;
   toggleDaily(id: string, key: CheckKey): Promise<void>;
   completeJob(jobId: string, personId: string, quantity?: number): Promise<string>;
+  completeCalendarEvent(event: CalendarEvent, personId: string, completed: boolean): Promise<void>;
   markEventLeftTooLong(eventId: string): Promise<void>;
   advanceFlow(flowId: string, personId: string): Promise<void>;
   addFlow(flow: Omit<FlowDefinition, 'id'>): Promise<void>;
@@ -117,6 +118,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     return result.eventId;
   }, [rememberState]);
 
+  const completeCalendarEvent = useCallback(async (event: CalendarEvent, personId: string, completed: boolean) => {
+    rememberState(await householdRepository.completeCalendarEvent(event, personId, completed));
+  }, [rememberState]);
+
   const markEventLeftTooLong = useCallback(async (eventId: string) => {
     rememberState(await householdRepository.markEventLeftTooLong(eventId));
   }, [rememberState]);
@@ -186,6 +191,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     updatePerson,
     toggleDaily,
     completeJob,
+    completeCalendarEvent,
     markEventLeftTooLong,
     advanceFlow,
     addFlow,
@@ -211,6 +217,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     updatePerson,
     toggleDaily,
     completeJob,
+    completeCalendarEvent,
     markEventLeftTooLong,
     advanceFlow,
     addFlow,

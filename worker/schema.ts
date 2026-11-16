@@ -101,11 +101,22 @@ const SCHEMA_STATEMENTS = [
   'CREATE INDEX IF NOT EXISTS idx_flow_auto_events_household_time ON flow_auto_events(household_id, occurred_at DESC)',
 ] as const;
 
+const CALENDAR_SCHEMA_STATEMENTS = [
+  "CREATE TABLE IF NOT EXISTS calendar_connections (\n  household_id TEXT PRIMARY KEY REFERENCES households(id) ON DELETE CASCADE,\n  refresh_token TEXT NOT NULL,\n  account_label TEXT NOT NULL,\n  updated_at TEXT NOT NULL\n)",
+  "CREATE TABLE IF NOT EXISTS calendar_sources (\n  household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,\n  calendar_id TEXT NOT NULL,\n  name TEXT NOT NULL,\n  color TEXT,\n  selected INTEGER NOT NULL DEFAULT 0,\n  last_sync TEXT,\n  last_error TEXT,\n  channel_id TEXT,\n  channel_token TEXT,\n  resource_id TEXT,\n  channel_expiration INTEGER,\n  PRIMARY KEY (household_id, calendar_id)\n)",
+  "CREATE INDEX IF NOT EXISTS idx_calendar_sources_selected ON calendar_sources(household_id, selected)",
+  "CREATE TABLE IF NOT EXISTS calendar_events (\n  household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,\n  calendar_id TEXT NOT NULL,\n  event_id TEXT NOT NULL,\n  title TEXT NOT NULL,\n  starts_at TEXT NOT NULL,\n  ends_at TEXT NOT NULL,\n  all_day INTEGER NOT NULL DEFAULT 0,\n  batch_id TEXT NOT NULL,\n  PRIMARY KEY (household_id, calendar_id, event_id),\n  FOREIGN KEY (household_id, calendar_id) REFERENCES calendar_sources(household_id, calendar_id) ON DELETE CASCADE\n)",
+  "CREATE INDEX IF NOT EXISTS idx_calendar_events_next ON calendar_events(household_id, starts_at)",
+  "CREATE TABLE IF NOT EXISTS calendar_completions (\n  household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,\n  calendar_id TEXT NOT NULL,\n  event_id TEXT NOT NULL,\n  person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,\n  completed_at TEXT NOT NULL,\n  PRIMARY KEY (household_id, calendar_id, event_id)\n)",
+  "CREATE TABLE IF NOT EXISTS calendar_oauth_states (\n  state TEXT PRIMARY KEY,\n  household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,\n  verifier TEXT NOT NULL,\n  expires_at INTEGER NOT NULL\n)",
+  "CREATE INDEX IF NOT EXISTS idx_calendar_oauth_expiration ON calendar_oauth_states(expires_at);",
+] as const;
+
 export async function ensureSchema(db: D1Database): Promise<void> {
   if (schemaReady) return;
 
   // Always ensure additive schema objects on older hosted households too.
-  await db.batch(SCHEMA_STATEMENTS.map((statement) => db.prepare(statement)));
+  await db.batch([...SCHEMA_STATEMENTS, ...CALENDAR_SCHEMA_STATEMENTS].map((statement) => db.prepare(statement)));
 
   schemaReady = true;
 }

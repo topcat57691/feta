@@ -84,6 +84,19 @@ export interface FlowEvent {
   automatic?: boolean;
 }
 
+export interface CalendarEvent {
+  calendarId: string;
+  eventId: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  calendarName: string;
+  color?: string;
+  completedBy?: string;
+  completedAt?: string;
+}
+
 export interface HouseholdState {
   version: 1;
   householdId: string;
@@ -95,6 +108,7 @@ export interface HouseholdState {
   flows: FlowDefinition[];
   flowStates: FlowState[];
   flowEvents: FlowEvent[];
+  calendarEvents: CalendarEvent[];
 }
 
 export interface DeviceState {

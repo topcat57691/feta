@@ -17,4 +17,7 @@ export interface AssetFetcher {
 export interface Env {
   DB?: D1Database;
   ASSETS: AssetFetcher;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  GOOGLE_TOKEN_ENCRYPTION_KEY?: string;
 }

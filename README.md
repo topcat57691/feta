@@ -133,6 +133,50 @@ D1 currently contains:
 
 This is intentionally small and relational. Completion/event history is the evidence used for cadence learning and the household timeline.
 
+
+## Google Calendar integration
+
+FETA can connect **one Google account per household**, discover its calendars and let the administrator
+select which calendars appear on the shared House and wall-display timelines. Calendars are initially
+**not selected**, so connecting an account never publishes private events by itself.
+
+Google setup:
+
+1. Enable the Google Calendar API and set up an External OAuth consent screen with a test user.
+2. In Google Auth Platform → Data Access, add
+   `https://www.googleapis.com/auth/calendar.calendarlist.readonly` and
+   `https://www.googleapis.com/auth/calendar.events.readonly`.
+3. Create a Web application OAuth client with authorised redirect URI
+   `https://feta.topcat57691.workers.dev/api/integrations/google-calendar/callback`.
+   This URL must match the Worker hostname configured in `worker/calendar.ts`.
+4. Configure three **encrypted Worker secrets** (not frontend environment variables):
+   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_TOKEN_ENCRYPTION_KEY`.
+   Generate the last one with:
+   `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
+5. Deploy, unlock /admin, connect Google, then check calendars and save the selection.
+
+A PIN-gated server-side OAuth code exchange uses PKCE and a one-use state. Refresh tokens are encrypted
+with AES-256-GCM before storage in D1. **Keep the encryption key backed up securely**: rotating it
+without reauthorisation makes saved tokens unreadable. No secrets or event descriptions are sent back
+to the admin browser.
+
+Selected calendars sync automatically every 15 minutes via Cloudflare Cron Triggers; validated
+Google push notifications request additional syncs. Webhook watches are renewed before expiry.
+The sync window covers the last 7 days and upcoming 90 days. It expands recurring Google events,
+and FETA stores completion per occurrence without modifying Google Calendar. Calendar privacy flags
+on individual Google events are respected by displaying them as `Busy (private event)`.
+
+Calendar event titles from **selected** calendars are visible to the household on /house and /display.
+Currently the integration is household-wide, not per-person access controlled; do not select a
+sensitive personal calendar. OAuth apps left in Google's External **Testing** mode generally need
+reconnection after seven days because the refresh token expires; move to Production and complete
+any required Google verification for long-term operation.
+
+The D1 schema is automatically bootstrapped on an existing household by the Worker. A matching
+migration lives at `db/migrations/0003_google_calendar.sql`. The sync runs from the Worker
+runtime, never from the browser. A disconnect clears saved credentials, cached events and FETA
+calendar completion history. No Google events are deleted.
+
 ## Operational scope
 
 This is a family POC, not a multi-tenant SaaS. There is no dev/staging/prod database split, no user-account provider, and no separate API deployment. If FETA later becomes multi-household/public, authentication and household authorization should be revisited before expanding access.

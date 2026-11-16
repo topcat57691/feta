@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../app/store';
 import type { CadencePeriod, FlowDefinition, JobDefinition, JobKind } from '../../app/types';
 import { AdminGate } from '../../features/admin/components/AdminGate';
+import { GoogleCalendarSettings } from '../../features/admin/components/GoogleCalendarSettings';
 import { Card } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
 import { formatCadence } from '../../lib/date';
@@ -48,6 +49,7 @@ function AdminContent() {
       </div>)}</div>
     </Card>
     <Card><div className="section-heading"><div><h2>People</h2></div><button className="small-button" onClick={()=>setPersonOpen(true)}><Plus/>Add</button></div>{state.people.map((person)=><div className="admin-row" key={person.id}><span className="avatar" style={{background:person.color}}>{person.name[0]}</span><div><strong>{person.name}</strong><small>PIN protected profile</small></div></div>)}</Card>
+    <GoogleCalendarSettings/>
     <Card><div className="admin-row"><Monitor/><div><strong>Wall display</strong><small>Open /display on the always-on screen.</small></div><button className="small-button" onClick={()=>window.open('/display','_blank')}>Open</button></div></Card>
     <button className="text-button danger" onClick={()=>void resetHousehold()}><RotateCcw/>Reset shared household</button>
     {jobOpen&&<Modal title="Add a job" onClose={()=>setJobOpen(false)}><div className="form-stack"><label>Name<input value={jobName} onChange={(e)=>setJobName(e.target.value)} placeholder="Clean bathroom"/></label><label>Icon<input value={jobIcon} onChange={(e)=>setJobIcon(e.target.value)} maxLength={4}/></label><fieldset><legend>What happens when you do it?</legend>{([['session','One good go resets it'],['counted','Each one counts'],['calendar','Happens on a schedule']] as [JobKind,string][]).map(([value,label])=><label className="radio-row" key={value}><input type="radio" checked={jobKind===value} onChange={()=>setJobKind(value)}/><span>{label}</span></label>)}</fieldset><p className="helper-copy">New jobs start at a daily rhythm. FETA learns from what actually happens.</p><button className="primary-button" onClick={()=>void addJob()}>Add job</button></div></Modal>}

@@ -36,6 +36,7 @@
       "migrations_dir": "db/migrations"
     }
   ],
+  "triggers": { "crons": ["*/15 * * * *"] },
   "previews": {
     "d1_databases": [
       {

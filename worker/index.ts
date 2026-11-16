@@ -23,6 +23,7 @@ import {
 import { createPinSalt, hashPin, validPin, verifyPin } from './pin';
 import { ensureSchema } from './schema';
 import type { D1Database, Env } from './types';
+import { completeCalendarEvent, handleCalendarRequest, syncCalendars } from './calendar';
 
 const DEFAULT_COLOR = '#bdd7ec';
 
@@ -84,7 +85,7 @@ function asPresence(value: unknown): Presence | undefined {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: { waitUntil(promise: Promise<unknown>): void }): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
     const requestId = crypto.randomUUID();
@@ -99,6 +100,19 @@ export default {
     try {
       stage = 'schema:ensure';
       await ensureSchema(db);
+
+      if (path.startsWith('/api/integrations/google-calendar/')) {
+        stage = 'calendar:integration';
+        return await handleCalendarRequest(request, env, db, ctx);
+      }
+      if (path === '/api/calendar/complete' && (request.method === 'POST' || request.method === 'DELETE')) {
+        stage = 'calendar:completion';
+        const household = await findHousehold(db);
+        if (!household) return error(404, 'HOUSEHOLD_MISSING', 'Set up a household first.');
+        const result = await completeCalendarEvent(db, request, household.id);
+        if (!result.ok) return result;
+        return stateResponse(db, request);
+      }
 
       if (request.method === 'GET' && path === '/api/health') {
         const household = await findHousehold(db);
@@ -308,5 +322,10 @@ export default {
         { requestId, stage },
       );
     }
+  },
+  async scheduled(_controller: unknown, env: Env): Promise<void> {
+    if (!env.DB) return;
+    await ensureSchema(env.DB);
+    await syncCalendars(env.DB, env);
   },
 };
