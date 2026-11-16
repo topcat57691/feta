@@ -84,6 +84,29 @@ export interface FlowEvent {
   automatic?: boolean;
 }
 
+// Independent instances of a configurable flow. Laundry is the first multi-instance flow.
+export interface FlowInstance {
+  id: string;
+  flowId: string;
+  name: string;
+  stateId: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface FlowInstanceEvent {
+  id: string;
+  instanceId: string;
+  flowId: string;
+  instanceName: string;
+  fromStateId: string;
+  toStateId: string;
+  personId?: string;
+  occurredAt: string;
+  automatic: boolean;
+}
+
 export interface CalendarEvent {
   calendarId: string;
   eventId: string;
@@ -108,6 +131,8 @@ export interface HouseholdState {
   flows: FlowDefinition[];
   flowStates: FlowState[];
   flowEvents: FlowEvent[];
+  flowInstances: FlowInstance[];
+  flowInstanceEvents: FlowInstanceEvent[];
   calendarEvents: CalendarEvent[];
 }
 
