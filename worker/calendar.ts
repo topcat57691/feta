@@ -1,5 +1,5 @@
 import type { CalendarEvent } from '../src/app/types';
-import { findHousehold, getAdminPin, readHousehold } from './db';
+import { findHousehold, getAdminPin } from './db';
 import { validPin, verifyPin } from './pin';
 import type { D1Database, Env } from './types';
 
@@ -405,8 +405,7 @@ export async function completeCalendarEvent(
        person_id = excluded.person_id, completed_at = excluded.completed_at`,
     ).bind(householdId, input.calendarId, input.eventId, input.personId, new Date().toISOString()).run();
   }
-  const state = await readHousehold(db, new Date().toISOString().slice(0, 10));
-  return response(state);
+  return response({ ok: true });
 }
 
 export async function handleCalendarRequest(
