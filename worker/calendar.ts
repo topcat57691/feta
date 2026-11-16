@@ -281,9 +281,11 @@ async function syncSource(db: D1Database, source: SourceRow, token: string): Pro
   // Upsert everything before pruning. A failed fetch never wipes cached events.
   for (const item of gathered) {
     if (!item.id || item.status === 'cancelled' || !item.start || !item.end) continue;
-    const start = item.start.dateTime ?? (item.start.date ? item.start.date + 'T00:00:00' : null);
-    const end = item.end.dateTime ?? (item.end.date ? item.end.date + 'T00:00:00' : null);
-    if (!start || !end) continue;
+    const rawStart = item.start.dateTime ?? (item.start.date ? item.start.date + 'T00:00:00Z' : null);
+    const rawEnd = item.end.dateTime ?? (item.end.date ? item.end.date + 'T00:00:00Z' : null);
+    if (!rawStart || !rawEnd) continue;
+    const start = new Date(rawStart).toISOString();
+    const end = new Date(rawEnd).toISOString();
     const title = item.visibility === 'private' ? 'Busy (private event)' : (item.summary || 'Untitled event');
     await db.prepare(
       `INSERT INTO calendar_events
