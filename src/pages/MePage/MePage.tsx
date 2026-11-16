@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, LogOut, Settings2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { availabilityLabels, useAppStore } from '../../app/store';
@@ -6,7 +6,7 @@ import type { Availability } from '../../app/types';
 import { Card } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
 import { selectJobAttention } from '../../features/cadence/cadence';
-import { flowDefinitions, getFlowStateDefinition } from '../../features/flows/flowDefinitions';
+import { flowDefinitions, flowTiming, getFlowStateDefinition } from '../../features/flows/flowDefinitions';
 
 const availabilities: Availability[] = ['in-zone','free','drained','out'];
 
@@ -16,6 +16,8 @@ export function MePage() {
   const [justDone, setJustDone] = useState<string | null>(null);
   const [showAllJobs, setShowAllJobs] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 30_000); return () => window.clearInterval(timer); }, []);
   const person = store.currentPerson;
   const state = store.state;
   const suggestions = useMemo(() => state ? selectJobAttention(state.jobs, state.events).slice(0,4) : [], [state]);
@@ -56,7 +58,14 @@ export function MePage() {
 
     <Card className="did-card"><div className="section-heading"><div><h2>What did you do?</h2></div><span>Tap and carry on</span></div>
       <div className="action-list">
-        {state.flowStates.map((flowState) => { const flow=flowDefinitions.find((candidate)=>candidate.id===flowState.flowId)!; const current=getFlowStateDefinition(flow.id,flowState.stateId); return <button className="action-row" disabled={busyAction===flow.id} key={flow.id} onClick={()=>void advance(flow.id)}><span className="action-row__icon">{flow.icon}</span><span><strong>{current.nextAction}</strong><small>{flow.name} · {current.label}</small></span><span className="action-cta">{busyAction===flow.id?'…':'Done'}</span></button>; })}
+        {state.flowStates.map((flowState) => {
+          const flow=(state.flows ?? flowDefinitions).find((candidate)=>candidate.id===flowState.flowId);
+          if(!flow)return null;
+          const current=getFlowStateDefinition(flow,flowState.stateId);
+          const timing=flowTiming(flow,flowState,now);
+          const status=timing.remainingMinutes!==null?timing.remainingMinutes+'m remaining':timing.reminderDue?'Gentle reminder':null;
+          return <button className="action-row" disabled={busyAction===flow.id} key={flow.id} onClick={()=>void advance(flow.id)}><span className="action-row__icon">{flow.icon}</span><span><strong>{current.nextAction}</strong><small>{flow.name} · {current.label}{status?' · '+status:''}</small></span><span className="action-cta">{busyAction===flow.id?'…':'Done'}</span></button>;
+        })}
         {suggestions.map((item) => { const job=state.jobs.find((candidate)=>candidate.id===item.id); if(!job) return null; return <button className="action-row" disabled={busyAction===job.id} key={job.id} onClick={()=>void doJob(job.id,1)}><span className="action-row__icon">{job.icon}</span><span><strong>{job.name}</strong><small>{job.kind==='counted'?`Add 1 ${job.unitLabel??'time'}`:'One good go resets it'}</small></span><span className="action-cta">{busyAction===job.id?'…':job.kind==='counted'?'+1':'Done'}</span></button>; })}
       </div>
       {justDone && <div className="gentle-followup"><span>Logged ✓</span><button onClick={()=>void store.markEventLeftTooLong(justDone)}>I left that too long</button></div>}

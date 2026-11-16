@@ -30,3 +30,16 @@ h1,h2,p { margin-top:0; } h1 { letter-spacing:-.045em; } h2 { letter-spacing:-.0
 @media (max-width:480px){.choice-grid{grid-template-columns:1fr 1fr}.card{padding:18px;border-radius:22px}.people-grid{grid-template-columns:1fr}.person-card{box-shadow:none;background:rgba(255,255,255,.58)}.house-section .people-grid .person-card:nth-child(n+4){display:none}.state-card .state-row:nth-child(n+6){display:none}.attention-row{grid-template-columns:42px 1fr auto}.pill{padding:6px 10px}.timeline-card__title span{display:none}.setup-card{padding:20px}.admin-summary{grid-template-columns:1fr 1fr}}
 
 .loading-page{min-height:100vh;display:grid;place-content:center;justify-items:center;gap:14px;color:var(--muted)}.loading-page .brand__mark{width:64px;height:64px;border-radius:22px}.infrastructure-page{align-items:center}.infrastructure-page .setup-card p{line-height:1.55}.action-row:disabled{opacity:.62;cursor:wait}.admin-error{background:#fff3e4;border:1px solid #f1d6ad;padding:11px 14px;border-radius:14px;margin:0}.connection-note{font-size:.78rem;color:var(--muted)}
+
+/* Cycle editor and calm, visible timers on phone and wall display. */
+.flow-editor-intro{font-size:.86rem;color:var(--muted);line-height:1.5}
+.flow-stage-editor{border:1px solid var(--border);border-radius:18px;background:#f8f8f3;padding:14px;display:grid;gap:12px;min-width:0}
+.flow-stage-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.flow-stage-controls{display:flex;gap:4px}
+.flow-stage-controls button{width:32px;height:32px;border:0;border-radius:9px;background:#e9eee4;cursor:pointer;display:grid;place-items:center}
+.flow-stage-controls button:disabled{opacity:.35;cursor:not-allowed}
+.flow-option{display:flex!important;align-items:flex-start;gap:10px!important;font-size:.82rem;font-weight:600!important;line-height:1.45}
+.flow-option input{width:18px;height:18px;flex:0 0 auto;margin:0}
+.flow-state-detail{display:grid;justify-items:end;gap:4px}
+.flow-state-detail small{color:var(--muted);font-size:.7rem;text-align:right}
+@media(max-width:480px){.flow-stage-editor .cadence-fields{grid-template-columns:1fr}.flow-state-detail small{font-size:.63rem}}
