@@ -263,6 +263,24 @@ async function ensureWatch(db: D1Database, row: SourceRow, token: string): Promi
     row.household_id, row.calendar_id).run();
   await stopChannel(token, row);
 }
+export function normaliseGoogleEvent(item: GoogleEvent): {
+  id: string; title: string; start: string; end: string; allDay: boolean;
+} | null {
+  if (!item.id || item.status === 'cancelled' || !item.start || !item.end) return null;
+  const rawStart = item.start.dateTime ?? (item.start.date ? item.start.date + 'T00:00:00Z' : null);
+  const rawEnd = item.end.dateTime ?? (item.end.date ? item.end.date + 'T00:00:00Z' : null);
+  if (!rawStart || !rawEnd) return null;
+  const startTime = new Date(rawStart);
+  const endTime = new Date(rawEnd);
+  if (!Number.isFinite(startTime.getTime()) || !Number.isFinite(endTime.getTime())) return null;
+  return {
+    id: item.id,
+    title: item.visibility === 'private' ? 'Busy (private event)' : (item.summary || 'Untitled event'),
+    start: startTime.toISOString(),
+    end: endTime.toISOString(),
+    allDay: Boolean(item.start.date),
+  };
+}
 async function syncSource(db: D1Database, source: SourceRow, token: string): Promise<void> {
   const from = new Date(Date.now() - WINDOW_PAST_DAYS * 86400_000).toISOString();
   const to = new Date(Date.now() + WINDOW_FUTURE_DAYS * 86400_000).toISOString();
@@ -285,13 +303,8 @@ async function syncSource(db: D1Database, source: SourceRow, token: string): Pro
   const batchId = crypto.randomUUID();
   // Upsert everything before pruning. A failed fetch never wipes cached events.
   for (const item of gathered) {
-    if (!item.id || item.status === 'cancelled' || !item.start || !item.end) continue;
-    const rawStart = item.start.dateTime ?? (item.start.date ? item.start.date + 'T00:00:00Z' : null);
-    const rawEnd = item.end.dateTime ?? (item.end.date ? item.end.date + 'T00:00:00Z' : null);
-    if (!rawStart || !rawEnd) continue;
-    const start = new Date(rawStart).toISOString();
-    const end = new Date(rawEnd).toISOString();
-    const title = item.visibility === 'private' ? 'Busy (private event)' : (item.summary || 'Untitled event');
+    const mapped = normaliseGoogleEvent(item);
+    if (!mapped) continue;
     await db.prepare(
       `INSERT INTO calendar_events
        (household_id, calendar_id, event_id, title, starts_at, ends_at, all_day, batch_id)
@@ -299,8 +312,8 @@ async function syncSource(db: D1Database, source: SourceRow, token: string): Pro
        ON CONFLICT (household_id, calendar_id, event_id) DO UPDATE SET
        title = excluded.title, starts_at = excluded.starts_at, ends_at = excluded.ends_at,
        all_day = excluded.all_day, batch_id = excluded.batch_id`,
-    ).bind(source.household_id, source.calendar_id, item.id, title,
-      start, end, item.start.date ? 1 : 0, batchId).run();
+    ).bind(source.household_id, source.calendar_id, mapped.id, mapped.title,
+      mapped.start, mapped.end, mapped.allDay ? 1 : 0, batchId).run();
   }
   await db.prepare('DELETE FROM calendar_events WHERE household_id = ? AND calendar_id = ? AND batch_id != ?')
     .bind(source.household_id, source.calendar_id, batchId).run();
