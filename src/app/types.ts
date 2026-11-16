@@ -50,16 +50,21 @@ export interface JobEvent {
   leftTooLong?: boolean;
 }
 
+export interface FlowStage {
+  id: string;
+  label: string;
+  nextAction: string;
+  durationMinutes?: number;
+  remindAfterMinutes?: number;
+  autoAdvance?: boolean;
+  attention?: 'now' | 'soon';
+}
+
 export interface FlowDefinition {
   id: string;
   name: string;
   icon: string;
-  states: Array<{
-    id: string;
-    label: string;
-    nextAction: string;
-    attention?: 'now' | 'soon';
-  }>;
+  states: FlowStage[];
 }
 
 export interface FlowState {
@@ -74,8 +79,9 @@ export interface FlowEvent {
   flowId: string;
   fromStateId: string;
   toStateId: string;
-  personId: string;
+  personId?: string;
   occurredAt: string;
+  automatic?: boolean;
 }
 
 export interface HouseholdState {
@@ -86,6 +92,7 @@ export interface HouseholdState {
   people: Person[];
   jobs: JobDefinition[];
   events: JobEvent[];
+  flows: FlowDefinition[];
   flowStates: FlowState[];
   flowEvents: FlowEvent[];
 }

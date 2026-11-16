@@ -1,10 +1,12 @@
 import type { Availability, JobDefinition, Presence } from '../src/app/types';
 import {
+  addFlow,
   addJob,
   addPerson,
   advanceFlow,
   completeJob,
   createHousehold,
+  deleteFlow,
   findHousehold,
   getAdminPin,
   getPersonPin,
@@ -14,6 +16,7 @@ import {
   seedDemo,
   setAdminPin,
   toggleDailyCheck,
+  updateFlow,
   updateJob,
   updatePerson,
 } from './db';
@@ -220,6 +223,25 @@ export default {
         return stateResponse(db, request);
       }
 
+      // Cycle definitions are protected by the existing administrator PIN.
+      if (path === '/api/flows' && request.method === 'POST' ||
+          /^\/api\/flows\/[^/]+$/.test(path) && ['PUT', 'DELETE'].includes(request.method)) {
+        stage = 'flows:admin';
+        const pin = request.headers.get('x-admin-pin');
+        const stored = await getAdminPin(db);
+        if (!validPin(pin) || !stored || !await verifyPin(pin, stored.pin_salt, stored.pin_hash)) {
+          return error(403, 'ADMIN_PIN_INVALID', 'Unlock Admin to configure cycles.');
+        }
+        if (path === '/api/flows') {
+          await addFlow(db, await body<unknown>(request));
+        } else {
+          const flowId = decodeURIComponent(path.split('/')[3]);
+          if (request.method === 'DELETE') await deleteFlow(db, flowId);
+          else await updateFlow(db, flowId, await body<unknown>(request));
+        }
+        return stateResponse(db, request);
+      }
+
       const flowMatch = path.match(/^\/api\/flows\/([^/]+)\/advance$/);
       if (request.method === 'POST' && flowMatch) {
         const input = await body<{ personId?: string }>(request);
@@ -267,6 +289,9 @@ export default {
         return error(409, message, 'An admin PIN has already been configured.');
       }
       if (message === 'INVALID_JSON') return error(400, message, 'Expected a JSON request body.');
+      if (message === 'FLOW_INVALID') return error(400, message, 'Check the cycle stages, labels and timers.');
+      if (message === 'FLOW_NOT_FOUND') return error(404, message, 'That cycle could not be found.');
+      if (message === 'FLOW_PROTECTED') return error(400, message, 'Built-in cycles cannot be deleted.');
       console.error('FETA API error', {
         requestId,
         stage,

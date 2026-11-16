@@ -1,6 +1,7 @@
 import type {
   Availability,
   CadencePeriod,
+  FlowDefinition,
   FlowEvent,
   FlowState,
   HouseholdState,
@@ -11,7 +12,7 @@ import type {
   Presence,
 } from '../src/app/types';
 import { learnCadence } from '../src/features/cadence/cadence';
-import { nextFlowStateId } from '../src/features/flows/flowDefinitions';
+import { dueFlowTransitions, flowDefinitions, nextFlowStateId, validateFlow } from '../src/features/flows/flowDefinitions';
 import type { D1Database } from './types';
 
 interface HouseholdRow {
@@ -62,6 +63,21 @@ interface JobEventRow {
   occurred_at: string;
   quantity: number;
   left_too_long: number;
+}
+
+interface FlowDefinitionRow {
+  id: string;
+  name: string;
+  icon: string;
+  states_json: string;
+}
+
+interface FlowAutoEventRow {
+  id: string;
+  flow_id: string;
+  from_state_id: string;
+  to_state_id: string;
+  occurred_at: string;
 }
 
 interface FlowStateRow {
@@ -120,7 +136,53 @@ export async function readHousehold(db: D1Database, today: string): Promise<Hous
   const household = await findHousehold(db);
   if (!household) return null;
 
-  const [peopleResult, jobsResult, eventsResult, flowStatesResult, flowEventsResult] = await Promise.all([
+  // Preserve existing live state/history; only seed missing built-in definitions.
+  await Promise.all(flowDefinitions.map((flow) =>
+    db.prepare(
+      'INSERT OR IGNORE INTO flow_definitions (household_id, id, name, icon, states_json, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ).bind(household.id, flow.id, flow.name, flow.icon, JSON.stringify(flow.states), new Date().toISOString()).run(),
+  ));
+
+  const definitionsResult = await db.prepare(
+    'SELECT id, name, icon, states_json FROM flow_definitions WHERE household_id = ? ORDER BY id',
+  ).bind(household.id).all<FlowDefinitionRow>();
+  const flows: FlowDefinition[] = definitionsResult.results.map((row) => ({
+    id: row.id, name: row.name, icon: row.icon, states: JSON.parse(row.states_json) as FlowDefinition['states'],
+  }));
+
+  // A GET can reconcile elapsed stages after the app was closed. Use compare-and-set
+  // to avoid overwriting a concurrent manual change, and retain automatic history.
+  const existingStates = await db.prepare(
+    'SELECT flow_id, state_id, updated_at, updated_by FROM flow_states WHERE household_id = ?',
+  ).bind(household.id).all<FlowStateRow>();
+  for (const existing of existingStates.results) {
+    const flow = flows.find((candidate) => candidate.id === existing.flow_id);
+    if (!flow) continue;
+    for (const transition of dueFlowTransitions(flow, {
+      flowId: existing.flow_id, stateId: existing.state_id, updatedAt: existing.updated_at,
+    })) {
+      await db.batch([
+        db.prepare(
+          `UPDATE flow_states SET state_id = ?, updated_at = ?, updated_by = NULL
+           WHERE household_id = ? AND flow_id = ? AND state_id = ? AND updated_at = ?`,
+        ).bind(
+          transition.toStateId, transition.occurredAt, household.id, flow.id,
+          transition.fromStateId, transition.fromUpdatedAt,
+        ),
+        db.prepare(
+          `INSERT OR IGNORE INTO flow_auto_events
+           (id, household_id, flow_id, from_state_id, to_state_id, occurred_at)
+           SELECT ?, ?, ?, ?, ?, ?
+           WHERE EXISTS (SELECT 1 FROM flow_states WHERE household_id = ? AND flow_id = ? AND state_id = ? AND updated_at = ?)`,
+        ).bind(
+          crypto.randomUUID(), household.id, flow.id, transition.fromStateId, transition.toStateId,
+          transition.occurredAt, household.id, flow.id, transition.toStateId, transition.occurredAt,
+        ),
+      ]);
+    }
+  }
+
+  const [peopleResult, jobsResult, eventsResult, flowStatesResult, flowEventsResult, autoEventsResult] = await Promise.all([
     db.prepare(
       `SELECT p.id, p.name, p.color, p.availability, p.capacity, p.presence, p.updated_at,
               d.date AS daily_date, d.slept_okay, d.feeling_okay, d.vitamins
@@ -156,6 +218,10 @@ export async function readHousehold(db: D1Database, today: string): Promise<Hous
         ORDER BY occurred_at DESC
         LIMIT 200`,
     ).bind(household.id).all<FlowEventRow>(),
+    db.prepare(
+      `SELECT id, flow_id, from_state_id, to_state_id, occurred_at
+       FROM flow_auto_events WHERE household_id = ? ORDER BY occurred_at DESC LIMIT 200`,
+    ).bind(household.id).all<FlowAutoEventRow>(),
   ]);
 
   const people: Person[] = peopleResult.results.map((row) => ({
@@ -181,14 +247,16 @@ export async function readHousehold(db: D1Database, today: string): Promise<Hous
     updatedBy: row.updated_by ?? undefined,
   }));
 
-  const flowEvents: FlowEvent[] = flowEventsResult.results.map((row) => ({
-    id: row.id,
-    flowId: row.flow_id,
-    fromStateId: row.from_state_id,
-    toStateId: row.to_state_id,
-    personId: row.person_id,
-    occurredAt: row.occurred_at,
-  }));
+  const flowEvents: FlowEvent[] = [
+    ...flowEventsResult.results.map((row) => ({
+      id: row.id, flowId: row.flow_id, fromStateId: row.from_state_id,
+      toStateId: row.to_state_id, personId: row.person_id, occurredAt: row.occurred_at,
+    })),
+    ...autoEventsResult.results.map((row) => ({
+      id: row.id, flowId: row.flow_id, fromStateId: row.from_state_id,
+      toStateId: row.to_state_id, occurredAt: row.occurred_at, automatic: true,
+    })),
+  ].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)).slice(0, 200);
 
   return {
     version: 1,
@@ -198,6 +266,7 @@ export async function readHousehold(db: D1Database, today: string): Promise<Hous
     people,
     jobs: jobsResult.results.map(mapJob),
     events: eventsResult.results.map(mapJobEvent),
+    flows,
     flowStates,
     flowEvents,
   };
@@ -423,15 +492,65 @@ export async function markEventLeftTooLong(db: D1Database, eventId: string): Pro
   await refreshLearnedCadence(db, row.job_id);
 }
 
+export async function addFlow(db: D1Database, input: unknown): Promise<void> {
+  const household = await findHousehold(db);
+  if (!household) throw new Error('HOUSEHOLD_MISSING');
+  const flow = validateFlow(input);
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare(
+      'INSERT INTO flow_definitions (household_id, id, name, icon, states_json, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    ).bind(household.id, id, flow.name, flow.icon, JSON.stringify(flow.states), now),
+    db.prepare(
+      'INSERT INTO flow_states (household_id, flow_id, state_id, updated_at) VALUES (?, ?, ?, ?)',
+    ).bind(household.id, id, flow.states[0].id, now),
+  ]);
+}
+
+export async function updateFlow(db: D1Database, flowId: string, input: unknown): Promise<void> {
+  const household = await findHousehold(db);
+  if (!household) throw new Error('HOUSEHOLD_MISSING');
+  const flow = validateFlow(input);
+  const existing = await db.prepare(
+    'SELECT id FROM flow_definitions WHERE household_id = ? AND id = ?',
+  ).bind(household.id, flowId).first<{ id: string }>();
+  if (!existing) throw new Error('FLOW_NOT_FOUND');
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare(
+      'UPDATE flow_definitions SET name = ?, icon = ?, states_json = ?, updated_at = ? WHERE household_id = ? AND id = ?',
+    ).bind(flow.name, flow.icon, JSON.stringify(flow.states), now, household.id, flowId),
+    db.prepare(
+      'UPDATE flow_states SET state_id = ?, updated_at = ?, updated_by = NULL WHERE household_id = ? AND flow_id = ? AND state_id NOT IN (' +
+        flow.states.map(() => '?').join(',') + ')',
+    ).bind(flow.states[0].id, now, household.id, flowId, ...flow.states.map((stage) => stage.id)),
+  ]);
+}
+
+export async function deleteFlow(db: D1Database, flowId: string): Promise<void> {
+  if (flowDefinitions.some((flow) => flow.id === flowId)) throw new Error('FLOW_PROTECTED');
+  const household = await findHousehold(db);
+  if (!household) throw new Error('HOUSEHOLD_MISSING');
+  await db.batch([
+    db.prepare('DELETE FROM flow_states WHERE household_id = ? AND flow_id = ?').bind(household.id, flowId),
+    db.prepare('DELETE FROM flow_definitions WHERE household_id = ? AND id = ?').bind(household.id, flowId),
+  ]);
+}
+
 export async function advanceFlow(db: D1Database, flowId: string, personId: string): Promise<void> {
   const household = await findHousehold(db);
   if (!household) throw new Error('HOUSEHOLD_MISSING');
+  const row = await db.prepare(
+    'SELECT id, name, icon, states_json FROM flow_definitions WHERE household_id = ? AND id = ?',
+  ).bind(household.id, flowId).first<FlowDefinitionRow>();
+  if (!row) throw new Error('FLOW_NOT_FOUND');
+  const definition: FlowDefinition = { id: row.id, name: row.name, icon: row.icon, states: JSON.parse(row.states_json) as FlowDefinition['states'] };
   const current = await db.prepare(
     'SELECT state_id FROM flow_states WHERE household_id = ? AND flow_id = ?',
   ).bind(household.id, flowId).first<{ state_id: string }>();
-  const fallback = flowId === 'dishwasher' ? 'empty' : 'clear';
-  const fromStateId = current?.state_id ?? fallback;
-  const toStateId = nextFlowStateId(flowId, fromStateId);
+  const fromStateId = current?.state_id ?? definition.states[0].id;
+  const toStateId = nextFlowStateId(definition, fromStateId);
   const now = new Date().toISOString();
   await db.batch([
     db.prepare(
