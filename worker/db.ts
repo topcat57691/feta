@@ -14,6 +14,7 @@ import type {
 import { learnCadence } from '../src/features/cadence/cadence';
 import { dueFlowTransitions, flowDefinitions, nextFlowStateId, validateFlow } from '../src/features/flows/flowDefinitions';
 import type { D1Database } from './types';
+import { readCalendarEvents } from './calendar';
 
 interface HouseholdRow {
   id: string;
@@ -269,6 +270,7 @@ export async function readHousehold(db: D1Database, today: string): Promise<Hous
     flows,
     flowStates,
     flowEvents,
+    calendarEvents: await readCalendarEvents(db, household.id),
   };
 }
 
