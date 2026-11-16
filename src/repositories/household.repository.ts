@@ -1,6 +1,7 @@
 import type {
   Availability,
   DeviceState,
+  CalendarEvent,
   FlowDefinition,
   HouseholdState,
   JobDefinition,
@@ -154,6 +155,15 @@ class HouseholdRepository {
     });
     this.cache(result.state);
     return result;
+  }
+
+  async completeCalendarEvent(event: CalendarEvent, personId: string, completed: boolean): Promise<HouseholdState> {
+    const state = await this.request<HouseholdState>('/api/calendar/complete', {
+      method: completed ? 'POST' : 'DELETE',
+      body: JSON.stringify({ calendarId: event.calendarId, eventId: event.eventId, personId }),
+    });
+    this.cache(state);
+    return state;
   }
 
   async markEventLeftTooLong(eventId: string): Promise<HouseholdState> {
