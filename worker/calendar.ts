@@ -110,8 +110,17 @@ async function decryptToken(env: Env, value: string): Promise<string> {
   );
   return new TextDecoder().decode(decrypted);
 }
+/** Returns only variable names; never expose their secret values. */
+export function missingGoogleSecrets(env: Env): string[] {
+  return ([
+    ['GOOGLE_CLIENT_ID', env.GOOGLE_CLIENT_ID],
+    ['GOOGLE_CLIENT_SECRET', env.GOOGLE_CLIENT_SECRET],
+    ['GOOGLE_TOKEN_ENCRYPTION_KEY', env.GOOGLE_TOKEN_ENCRYPTION_KEY],
+  ] as const).filter(([, value]) => typeof value !== 'string' || !value.trim())
+    .map(([name]) => name);
+}
 function credentialsAvailable(env: Env): boolean {
-  return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_TOKEN_ENCRYPTION_KEY);
+  return missingGoogleSecrets(env).length === 0;
 }
 async function googleToken(env: Env, params: Record<string, string>): Promise<TokenResponse> {
   const result = await fetch('https://oauth2.googleapis.com/token', {
@@ -443,11 +452,13 @@ export async function handleCalendarRequest(
   }
   const household = await findHousehold(db);
   if (!household) return failure(404, 'HOUSEHOLD_MISSING', 'Set up the household first.');
-  if (!credentialsAvailable(env)) return failure(503, 'CALENDAR_NOT_CONFIGURED', 'Google Calendar secrets are not set in Cloudflare.');
-
+  const missingSecrets = missingGoogleSecrets(env);
+  // Always allow PIN-authenticated status to load, even when the runtime bindings are missing.
   if (request.method === 'GET' && path.endsWith('/status')) {
     const saved = await connection(db, household.id);
     return response({
+      configured: missingSecrets.length === 0,
+      missingSecrets,
       connected: Boolean(saved),
       account: saved?.account_label ?? null,
       calendars: (await sources(db, household.id)).map((row) => ({
@@ -455,6 +466,11 @@ export async function handleCalendarRequest(
         lastSync: row.last_sync, error: row.last_error,
       })),
     });
+  }
+  if (missingSecrets.length) {
+    return failure(503, 'CALENDAR_NOT_CONFIGURED',
+      'Missing runtime Worker secrets: ' + missingSecrets.join(', ') +
+      '. Add these under Worker Settings → Variables and Secrets, not Build variables, and deploy the changes.');
   }
   if (request.method === 'POST' && path.endsWith('/connect')) {
     const verifier = randomUrlSafe();
