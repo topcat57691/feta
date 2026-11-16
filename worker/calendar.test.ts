@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { normaliseGoogleEvent } from './calendar';
+import { missingGoogleSecrets, normaliseGoogleEvent } from './calendar';
+import type { Env } from './types';
 
 describe('Google Calendar event mapping', () => {
   it('normalises timezone offsets to UTC', () => {
@@ -52,5 +53,35 @@ describe('Google Calendar event mapping', () => {
     expect(normaliseGoogleEvent({ id: 'removed', status: 'cancelled', start, end })).toBeNull();
     expect(normaliseGoogleEvent({ id: 'bad', start: { dateTime: 'invalid' }, end })).toBeNull();
     expect(normaliseGoogleEvent({ id: 'missing', start })).toBeNull();
+  });
+});
+
+describe('Worker Calendar secret diagnostics', () => {
+  const environment = (secrets: Partial<Env>): Env => ({
+    ASSETS: { fetch: async () => new Response(null) },
+    ...secrets,
+  });
+
+  it('names only missing runtime bindings', () => {
+    expect(missingGoogleSecrets(environment({ GOOGLE_CLIENT_ID: 'id' }))).toEqual([
+      'GOOGLE_CLIENT_SECRET',
+      'GOOGLE_TOKEN_ENCRYPTION_KEY',
+    ]);
+  });
+
+  it('treats whitespace-only bindings as missing', () => {
+    expect(missingGoogleSecrets(environment({
+      GOOGLE_CLIENT_ID: 'id',
+      GOOGLE_CLIENT_SECRET: '  ',
+      GOOGLE_TOKEN_ENCRYPTION_KEY: 'key',
+    }))).toEqual(['GOOGLE_CLIENT_SECRET']);
+  });
+
+  it('does not expose values when all runtime bindings exist', () => {
+    expect(missingGoogleSecrets(environment({
+      GOOGLE_CLIENT_ID: 'client-id',
+      GOOGLE_CLIENT_SECRET: 'extremely-sensitive-client-secret',
+      GOOGLE_TOKEN_ENCRYPTION_KEY: 'sensitive-encoded-key',
+    }))).toEqual([]);
   });
 });
