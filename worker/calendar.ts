@@ -189,7 +189,10 @@ async function refreshCalendarList(db: D1Database, householdId: string, token: s
 }
 function ensureSameOrigin(request: Request): boolean {
   const origin = request.headers.get('origin');
-  return origin === new URL(request.url).origin && origin === ORIGIN;
+  if (new URL(request.url).origin !== ORIGIN) return false;
+  if (origin && origin !== ORIGIN) return false;
+  // Same-origin GET requests generally omit Origin; mutations must supply it.
+  return request.method === 'GET' || origin === ORIGIN;
 }
 async function adminAllowed(db: D1Database, request: Request): Promise<boolean> {
   const pin = request.headers.get('x-admin-pin');
