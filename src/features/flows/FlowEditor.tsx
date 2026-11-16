@@ -53,7 +53,7 @@ export function FlowEditor({
     setError('');
     let value: Omit<FlowDefinition, 'id'>;
     try {
-      value = validateFlow({ name, icon, states });
+      value = validateFlow({ name, icon, states: stages });
     } catch {
       setError('Give each stage a name and action. Timers must be between 1 minute and 30 days; at least one stage must be manual.');
       return;
