@@ -11,6 +11,8 @@ interface CalendarSource {
   error: string | null;
 }
 interface CalendarStatus {
+  configured: boolean;
+  missingSecrets: string[];
   connected: boolean;
   account: string | null;
   calendars: CalendarSource[];
@@ -96,11 +98,16 @@ export function GoogleCalendarSettings() {
     {outcome === 'error' && <p className="form-error">Google did not connect. Check the OAuth redirect and Google Cloud settings, then try again.</p>}
     {outcome === 'cancelled' && <p className="connection-note">Google connection was cancelled.</p>}
     {error && <p className="form-error">{error}</p>}
+    {!loading && status && !status.configured && <p className="form-error" role="alert">
+      FETA is missing these runtime Worker secrets: <strong>{status.missingSecrets.join(', ')}</strong>.
+      Check Cloudflare Workers &amp; Pages → feta → Settings → Variables and Secrets (not Build variables),
+      then select Deploy. Only the variable names are shown here, never their values.
+    </p>}
     {message && <p className="connection-note" role="status">{message}</p>}
     {loading && <p className="connection-note">Checking Google connection…</p>}
 
     {!loading && status && !status.connected && <div className="calendar-settings-actions">
-      <button className="primary-button" disabled={busy} onClick={() => void connect()}><Link2 size={18}/>Connect Google Calendar</button>
+      <button className="primary-button" disabled={busy || !status.configured} onClick={() => void connect()}><Link2 size={18}/>Connect Google Calendar</button>
       <small className="muted">FETA asks only to view your calendar list and events. No Google event is changed.</small>
     </div>}
 
