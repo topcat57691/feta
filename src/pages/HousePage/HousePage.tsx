@@ -6,7 +6,7 @@ import { Card } from '../../components/ui/Card';
 import { Pill } from '../../components/ui/Pill';
 import { PersonCard } from '../../features/people/components/PersonCard';
 import { calculateJobPressure, selectJobAttention } from '../../features/cadence/cadence';
-import { flowDefinitions, getFlowStateDefinition } from '../../features/flows/flowDefinitions';
+import { flowDefinitions, flowTiming, getFlowStateDefinition } from '../../features/flows/flowDefinitions';
 import { HouseholdTimeline } from '../../features/timeline/HouseholdTimeline';
 import { formatCadence, relativeTime } from '../../lib/date';
 
@@ -23,11 +23,12 @@ export function HousePage() {
     if (!state) return [];
     const jobs = selectJobAttention(state.jobs, state.events, now);
     const flows = state.flowStates.flatMap((flowState) => {
-      const flow = flowDefinitions.find((candidate) => candidate.id === flowState.flowId);
+      const flow = (state.flows ?? flowDefinitions).find((candidate) => candidate.id === flowState.flowId);
       if (!flow) return [];
-      const current = getFlowStateDefinition(flow.id, flowState.stateId);
-      if (!current.attention) return [];
-      return [{ id: flow.id, kind: 'flow' as const, title: current.nextAction, subtitle: `${flow.name} · ${current.label}`, icon: flow.icon, urgency: current.attention, score: current.attention === 'now' ? 1.4 : 0.8 }];
+      const timing = flowTiming(flow, flowState, now);
+      if (!timing.reminderDue && !timing.stage.attention) return [];
+      const title = timing.reminderDue ? flow.name + ' is ready' : timing.stage.nextAction;
+      return [{ id: flow.id, kind: 'flow' as const, title, subtitle: flow.name + ' · ' + timing.stage.label, icon: flow.icon, urgency: 'soon' as const, score: 0.8 }];
     });
     return [...flows, ...jobs].sort((a,b) => b.score - a.score).slice(0,5);
   }, [state, now]);
@@ -61,9 +62,12 @@ export function HousePage() {
         <div className="section-heading"><div><Home/><h2>Household state</h2></div><span>At a glance</span></div>
         <div className="state-list">
           {state.flowStates.map((flowState) => {
-            const flow = flowDefinitions.find((candidate) => candidate.id === flowState.flowId)!;
-            const current = getFlowStateDefinition(flow.id, flowState.stateId);
-            return <div className="state-row" key={flow.id}><span className="state-row__icon">{flow.icon}</span><strong>{flow.name}</strong><Pill tone={current.attention ? 'blue' : 'green'}>{current.label}</Pill></div>;
+            const flow = (state.flows ?? flowDefinitions).find((candidate) => candidate.id === flowState.flowId);
+            if (!flow) return null;
+            const timing = flowTiming(flow, flowState, now);
+            const current = getFlowStateDefinition(flow, flowState.stateId);
+            const detail = timing.remainingMinutes !== null ? timing.remainingMinutes + 'm left' : timing.reminderDue ? 'Gentle reminder' : timing.reminderMinutes !== null ? 'Remind in ' + timing.reminderMinutes + 'm' : '';
+            return <div className="state-row" key={flow.id}><span className="state-row__icon">{flow.icon}</span><strong>{flow.name}</strong><div className="flow-state-detail"><Pill tone={timing.reminderDue ? 'amber' : timing.remainingMinutes !== null ? 'blue' : 'green'}>{current.label}</Pill>{detail && <small>{detail}</small>}</div></div>;
           })}
           {state.jobs.filter((job) => job.enabled).slice(0,5).map((job) => {
             const last = state.events.filter((event) => event.jobId === job.id).sort((a,b) => b.occurredAt.localeCompare(a.occurredAt))[0];

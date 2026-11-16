@@ -1,6 +1,7 @@
 import type {
   Availability,
   DeviceState,
+  FlowDefinition,
   HouseholdState,
   JobDefinition,
   Person,
@@ -168,6 +169,37 @@ class HouseholdRepository {
     const state = await this.request<HouseholdState>(`/api/flows/${encodeURIComponent(flowId)}/advance`, {
       method: 'POST',
       body: JSON.stringify({ personId }),
+    });
+    this.cache(state);
+    return state;
+  }
+
+
+  private adminHeaders(): Record<string, string> {
+    const pin = sessionStorage.getItem('feta.admin.pin');
+    if (!pin) throw new Error('Unlock Admin again to configure cycles.');
+    return { 'x-admin-pin': pin };
+  }
+
+  async addFlow(flow: Omit<FlowDefinition, 'id'>): Promise<HouseholdState> {
+    const state = await this.request<HouseholdState>('/api/flows', {
+      method: 'POST', headers: this.adminHeaders(), body: JSON.stringify(flow),
+    });
+    this.cache(state);
+    return state;
+  }
+
+  async updateFlow(flowId: string, flow: Omit<FlowDefinition, 'id'>): Promise<HouseholdState> {
+    const state = await this.request<HouseholdState>('/api/flows/' + encodeURIComponent(flowId), {
+      method: 'PUT', headers: this.adminHeaders(), body: JSON.stringify(flow),
+    });
+    this.cache(state);
+    return state;
+  }
+
+  async deleteFlow(flowId: string): Promise<HouseholdState> {
+    const state = await this.request<HouseholdState>('/api/flows/' + encodeURIComponent(flowId), {
+      method: 'DELETE', headers: this.adminHeaders(),
     });
     this.cache(state);
     return state;
