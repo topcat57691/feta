@@ -86,10 +86,15 @@ function toBase64(bytes: Uint8Array): string {
 function fromBase64(value: string): Uint8Array {
   return Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
 }
+function webBytes(input: Uint8Array): Uint8Array<ArrayBuffer> {
+  const output = new Uint8Array(new ArrayBuffer(input.length));
+  output.set(input);
+  return output;
+}
 async function encryptionKey(env: Env): Promise<CryptoKey> {
   const bytes = fromBase64(env.GOOGLE_TOKEN_ENCRYPTION_KEY ?? '');
   if (bytes.length !== 32) throw new Error('GOOGLE_TOKEN_ENCRYPTION_KEY must be 32 Base64-encoded bytes');
-  return crypto.subtle.importKey('raw', bytes, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  return crypto.subtle.importKey('raw', webBytes(bytes), 'AES-GCM', false, ['encrypt', 'decrypt']);
 }
 async function encryptToken(env: Env, token: string): Promise<string> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -101,7 +106,7 @@ async function decryptToken(env: Env, value: string): Promise<string> {
   const [version, iv, ciphertext] = value.split(':');
   if (version !== 'v1' || !iv || !ciphertext) throw new Error('Unsupported encrypted calendar token');
   const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: fromBase64(iv) }, await encryptionKey(env), fromBase64(ciphertext),
+    { name: 'AES-GCM', iv: webBytes(fromBase64(iv)) }, await encryptionKey(env), webBytes(fromBase64(ciphertext)),
   );
   return new TextDecoder().decode(decrypted);
 }
