@@ -341,7 +341,7 @@ export default {
       if (message === 'LAUNDRY_NAME_INVALID' || message === 'LAUNDRY_TRANSITION_INVALID') return error(400, message, 'Check the load name or action.');
       if (message === 'LAUNDRY_NOT_FOUND' || message === 'PERSON_NOT_FOUND') return error(404, message, 'The load or person could not be found.');
       if (message === 'LAUNDRY_STALE') return error(409, message, 'This load has changed. Refresh and try again.');
-      if (message === 'APPLIANCE_BUSY' || message.includes('UNIQUE constraint failed: flow_instances.household_id')) {
+      if (message === 'APPLIANCE_BUSY' || (message.includes('UNIQUE constraint failed') && (message.includes('flow_instances') || message.includes('idx_laundry_')))) {
         return error(409, 'APPLIANCE_BUSY', 'That appliance is occupied. Unload the current load first.');
       }
       if (message === 'LAUNDRY_USE_LOADS') return error(400, message, 'Manage individual loads on the Laundry screen.');
