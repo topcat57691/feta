@@ -30,7 +30,18 @@ The UI remains feature-oriented: pages compose, features own behaviour, reusable
 - Calendar jobs: fixed schedule.
 - Auto cadence writes to the same cadence value used everywhere else; editing it switches to Manual.
 - “I left that too long” keeps history but prevents that interval teaching an undesirable cadence.
-- Dishwasher and laundry are state machines, not overdue chores.
+- Dishwasher remains a single state machine. Laundry is a multi-instance flow: each load has its own state, timer, gentle reminders and transition history.
+- The wall shows one compact Laundry summary, while the phone has a dedicated `/laundry` screen for naming, starting, moving and putting away individual loads.
+
+## Multi-load laundry
+
+- A household can track many loads at once: queued, washing, washed in the machine, wet and waiting, tumble drying, finished in the dryer, air drying, or ready to put away.
+- Washer and tumble dryer are each limited to one occupied load at a time. The D1 database enforces this with unique partial indexes, not just UI checks.
+- A wash or tumble-dry timer reaching zero marks the cycle **finished in the appliance**, not physically unloaded. Unload/transfer actions explicitly free an appliance; a direct washer-to-dryer transfer is supported.
+- Each load is stored independently in the additive `flow_instances` table, with transitions and completions in `flow_instance_events`. Completed loads leave the active view but retain their event history.
+- Admin → Cycles → Laundry lets you set wash/dry durations, auto-finish rules, and gentle wet/put-away reminders. Air-dried loads have a manual finish action and do not occupy the tumble dryer.
+- Existing single-state laundry is migrated on the first household read: an empty/clear state becomes no load; an active state becomes a named "Previous laundry load" with its original timestamp. Existing flow history is preserved.
+- Household timeline shows load transitions and upcoming estimated completions/reminders.
 
 ## PINs and database credentials
 
@@ -64,7 +75,7 @@ The committed database ID is `188a8e92-7d15-4d52-8168-58c24929dc26`.
 npm run db:migrate
 ```
 
-This applies `db/migrations/0001_initial.sql`.
+This applies the local schema migrations, including `0004_multi_load_flows.sql`.
 
 ### 4. Deploy
 
