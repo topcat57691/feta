@@ -15,6 +15,7 @@ import { learnCadence } from '../src/features/cadence/cadence';
 import { dueFlowTransitions, flowDefinitions, nextFlowStateId, validateFlow } from '../src/features/flows/flowDefinitions';
 import type { D1Database } from './types';
 import { readCalendarEvents } from './calendar';
+import { migrateLegacyLaundry, readLaundry } from './laundry';
 
 interface HouseholdRow {
   id: string;
@@ -151,6 +152,9 @@ export async function readHousehold(db: D1Database, today: string): Promise<Hous
     id: row.id, name: row.name, icon: row.icon, states: JSON.parse(row.states_json) as FlowDefinition['states'],
   }));
 
+  // Convert the former single laundry state into an independent load once.
+  await migrateLegacyLaundry(db, household.id);
+
   // A GET can reconcile elapsed stages after the app was closed. Use compare-and-set
   // to avoid overwriting a concurrent manual change, and retain automatic history.
   const existingStates = await db.prepare(
@@ -259,6 +263,8 @@ export async function readHousehold(db: D1Database, today: string): Promise<Hous
     })),
   ].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)).slice(0, 200);
 
+  const laundry = await readLaundry(db, household.id, flows.find((flow) => flow.id === 'laundry'));
+
   return {
     version: 1,
     householdId: household.id,
@@ -270,6 +276,8 @@ export async function readHousehold(db: D1Database, today: string): Promise<Hous
     flows,
     flowStates,
     flowEvents,
+    flowInstances: laundry.instances,
+    flowInstanceEvents: laundry.events,
     calendarEvents: await readCalendarEvents(db, household.id),
   };
 }
@@ -541,6 +549,7 @@ export async function deleteFlow(db: D1Database, flowId: string): Promise<void> 
 }
 
 export async function advanceFlow(db: D1Database, flowId: string, personId: string): Promise<void> {
+  if (flowId === 'laundry') throw new Error('LAUNDRY_USE_LOADS');
   const household = await findHousehold(db);
   if (!household) throw new Error('HOUSEHOLD_MISSING');
   const row = await db.prepare(

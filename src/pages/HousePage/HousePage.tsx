@@ -9,6 +9,8 @@ import { calculateJobPressure, selectJobAttention } from '../../features/cadence
 import { flowDefinitions, flowTiming, getFlowStateDefinition } from '../../features/flows/flowDefinitions';
 import { HouseholdTimeline } from '../../features/timeline/HouseholdTimeline';
 import { UpcomingCalendar } from '../../features/timeline/UpcomingCalendar';
+import { LaundrySummary } from '../../features/laundry/LaundrySummary';
+import { laundryStates, laundryTiming, type LaundryState } from '../../features/laundry/laundry';
 import { formatCadence, relativeTime } from '../../lib/date';
 
 function urgencyTone(urgency: 'now'|'soon') { return urgency === 'now' ? 'amber' : 'blue'; }
@@ -31,7 +33,19 @@ export function HousePage() {
       const title = timing.reminderDue ? flow.name + ' is ready' : timing.stage.nextAction;
       return [{ id: flow.id, kind: 'flow' as const, title, subtitle: flow.name + ' · ' + timing.stage.label, icon: flow.icon, urgency: 'soon' as const, score: 0.8 }];
     });
-    return [...flows, ...jobs].sort((a,b) => b.score - a.score).slice(0,5);
+    const laundryFlow = state.flows.find((flow) => flow.id === 'laundry');
+    const laundry = (state.flowInstances ?? []).flatMap((load) => {
+      const timing = laundryTiming(load, laundryFlow, now);
+      if (!['wash-complete', 'dryer-complete'].includes(load.stateId) && !timing.reminderDue) return [];
+      return [{
+        id: load.id, kind: 'flow' as const,
+        title: load.stateId === 'wash-complete' ? 'Washing has finished'
+          : load.stateId === 'dryer-complete' ? 'Dryer has finished' : 'Laundry is waiting',
+        subtitle: load.name + ' · ' + (laundryStates[load.stateId as LaundryState]?.label ?? 'Laundry'),
+        icon: '🧺', urgency: 'soon' as const, score: timing.reminderDue ? 0.92 : 0.76,
+      }];
+    });
+    return [...laundry, ...flows, ...jobs].sort((a,b) => b.score - a.score).slice(0,5);
   }, [state, now]);
 
   if (!state) return null;
@@ -62,6 +76,7 @@ export function HousePage() {
       <Card className="state-card">
         <div className="section-heading"><div><Home/><h2>Household state</h2></div><span>At a glance</span></div>
         <div className="state-list">
+          <LaundrySummary loads={state.flowInstances ?? []} flow={state.flows.find((flow) => flow.id === 'laundry')} now={now} interactive={!displayMode} />
           {state.flowStates.map((flowState) => {
             const flow = (state.flows ?? flowDefinitions).find((candidate) => candidate.id === flowState.flowId);
             if (!flow) return null;

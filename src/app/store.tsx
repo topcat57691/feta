@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { Availability, CalendarEvent, FlowDefinition, HouseholdState, JobDefinition, Person } from './types';
 import { householdRepository } from '../repositories/household.repository';
+import type { LaundryAction } from '../features/laundry/laundry';
 
 const COLORS = ['#bdd7ec', '#cfe3bf', '#f2d69b', '#e2c9e8', '#f0c6bb', '#bfe0d7'];
 type CheckKey = 'sleptOkay' | 'feelingOkay' | 'vitamins';
@@ -31,6 +32,9 @@ interface StoreValue {
   completeCalendarEvent(event: CalendarEvent, personId: string, completed: boolean): Promise<void>;
   markEventLeftTooLong(eventId: string): Promise<void>;
   advanceFlow(flowId: string, personId: string): Promise<void>;
+  createLaundryLoad(personId: string, name?: string): Promise<void>;
+  renameLaundryLoad(id: string, personId: string, name: string): Promise<void>;
+  transitionLaundryLoad(id: string, personId: string, action: LaundryAction): Promise<void>;
   addFlow(flow: Omit<FlowDefinition, 'id'>): Promise<void>;
   updateFlow(flowId: string, flow: Omit<FlowDefinition, 'id'>): Promise<void>;
   deleteFlow(flowId: string): Promise<void>;
@@ -130,6 +134,18 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     rememberState(await householdRepository.advanceFlow(flowId, personId));
   }, [rememberState]);
 
+  const createLaundryLoad = useCallback(async (personId: string, name?: string) => {
+    rememberState(await householdRepository.createLaundryLoad(personId, name));
+  }, [rememberState]);
+
+  const renameLaundryLoad = useCallback(async (id: string, personId: string, name: string) => {
+    rememberState(await householdRepository.renameLaundryLoad(id, personId, name));
+  }, [rememberState]);
+
+  const transitionLaundryLoad = useCallback(async (id: string, personId: string, action: LaundryAction) => {
+    rememberState(await householdRepository.transitionLaundryLoad(id, personId, action));
+  }, [rememberState]);
+
   const addFlow = useCallback(async (flow: Omit<FlowDefinition, 'id'>) => {
     rememberState(await householdRepository.addFlow(flow));
   }, [rememberState]);
@@ -194,6 +210,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     completeCalendarEvent,
     markEventLeftTooLong,
     advanceFlow,
+    createLaundryLoad,
+    renameLaundryLoad,
+    transitionLaundryLoad,
     addFlow,
     updateFlow,
     deleteFlow,
@@ -220,6 +239,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     completeCalendarEvent,
     markEventLeftTooLong,
     advanceFlow,
+    createLaundryLoad,
+    renameLaundryLoad,
+    transitionLaundryLoad,
     addFlow,
     updateFlow,
     deleteFlow,

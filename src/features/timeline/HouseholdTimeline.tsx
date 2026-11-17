@@ -3,6 +3,7 @@ import type { HouseholdState } from '../../app/types';
 import { calculateJobPressure } from '../cadence/cadence';
 import { flowDefinitions, getFlowStateDefinition } from '../flows/flowDefinitions';
 import { DAY_MS } from '../../lib/date';
+import { laundryStates, type LaundryState } from '../laundry/laundry';
 
 interface Marker {
   id: string;
@@ -35,6 +36,15 @@ export function HouseholdTimeline({ state }: { state: HouseholdState }) {
         label: (state.flows ?? flowDefinitions).find((flow) => flow.id === event.flowId)?.name ?? 'Cycle',
         done: true,
       }));
+    const pastLoads: Marker[] = (state.flowInstanceEvents ?? [])
+      .filter((event) => now - new Date(event.occurredAt).getTime() <= windowMs)
+      .map((event) => ({
+        id: 'load-' + event.id,
+        at: new Date(event.occurredAt).getTime(),
+        icon: '🧺',
+        label: event.instanceName + ' · ' + (laundryStates[event.toStateId as LaundryState]?.label ?? 'Put away'),
+        done: true,
+      }));
     const upcomingJobs: Marker[] = state.jobs.filter((job) => job.enabled)
       .map((job) => ({ job, pressure: calculateJobPressure(job, state.events) }))
       .filter(({ pressure }) => pressure.dueAt && pressure.dueAt.getTime() >= now)
@@ -53,6 +63,22 @@ export function HouseholdTimeline({ state }: { state: HouseholdState }) {
         label: stage.durationMinutes ? stage.nextAction : flow.name + ' reminder',
       }] : [];
     });
+    const upcomingLoads: Marker[] = (state.flowInstances ?? []).flatMap((load) => {
+      const flow = state.flows.find((item) => item.id === load.flowId);
+      const stage = load.stateId === 'washing' || load.stateId === 'drying'
+        ? flow?.states.find((item) => item.id === load.stateId)
+        : load.stateId === 'wet' || load.stateId === 'wash-complete'
+          ? flow?.states.find((item) => item.id === 'ready-to-dry')
+          : load.stateId === 'ready-to-put-away' || load.stateId === 'dryer-complete'
+            ? flow?.states.find((item) => item.id === 'ready-to-put-away') : undefined;
+      const minutes = load.stateId === 'washing' || load.stateId === 'drying'
+        ? stage?.durationMinutes ?? (load.stateId === 'washing' ? 180 : 90)
+        : stage?.remindAfterMinutes;
+      if (!minutes) return [];
+      const at = new Date(load.updatedAt).getTime() + minutes * 60_000;
+      return at >= now ? [{ id: 'load-due-' + load.id, at, icon: '🧺',
+        label: load.name + (load.stateId === 'washing' || load.stateId === 'drying' ? ' cycle ends' : ' reminder') }] : [];
+    });
     const googleEvents: Marker[] = (state.calendarEvents ?? [])
       .map((event) => ({
         id: 'google-' + event.calendarId + ':' + event.eventId,
@@ -62,7 +88,7 @@ export function HouseholdTimeline({ state }: { state: HouseholdState }) {
         calendar: true,
         done: Boolean(event.completedAt),
       }));
-    const all = [...pastJobs, ...pastFlows, ...upcomingJobs, ...upcomingFlows, ...googleEvents]
+    const all = [...pastJobs, ...pastFlows, ...pastLoads, ...upcomingJobs, ...upcomingFlows, ...upcomingLoads, ...googleEvents]
       .filter((marker) => Number.isFinite(marker.at) && Math.abs(marker.at - now) <= windowMs);
     const past = all.filter((item) => item.at < now).sort((a, b) => b.at - a.at).slice(0, 8);
     const future = all.filter((item) => item.at >= now).sort((a, b) => a.at - b.at).slice(0, 8);
