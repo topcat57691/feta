@@ -77,3 +77,52 @@ h1,h2,p { margin-top:0; } h1 { letter-spacing:-.045em; } h2 { letter-spacing:-.0
   .upcoming-calendar__action{min-width:50px;font-size:.73rem}
   .upcoming-calendar__action span{display:none}
 }
+
+/* Multiple independent laundry loads: compact on the wall, actionable on phones. */
+.laundry-summary{border-bottom:1px solid var(--border);padding:11px 0 16px;display:grid;gap:10px;min-width:0}
+.laundry-summary__heading{display:flex;align-items:center;gap:9px;min-width:0}
+.laundry-summary__heading>span{font-size:1.5rem}
+.laundry-summary__heading>div{display:grid;gap:2px;min-width:0;flex:1}
+.laundry-summary__heading small,.laundry-summary__other{color:var(--muted);font-size:.72rem}
+.laundry-summary__link{color:#36704b;font-size:.76rem;font-weight:800;white-space:nowrap}
+.laundry-summary__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.laundry-summary__grid>div{background:#f1f3eb;border-radius:12px;padding:9px;display:grid;gap:4px;min-width:0}
+.laundry-summary__grid span{color:var(--muted);font-size:.68rem}
+.laundry-summary__grid strong{font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.laundry-summary__other{line-height:1.4}
+.laundry-quick-link{color:inherit;text-decoration:none}
+.laundry-count{background:var(--green-soft);padding:8px 12px;border-radius:99px;font-weight:850;font-size:.73rem;white-space:nowrap}
+.laundry-overview{display:grid;gap:12px}
+.laundry-overview h2,.laundry-loads-card h2{margin:0}
+.laundry-overview__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.laundry-overview__grid>div{display:grid;gap:5px;background:#f2f4ec;border-radius:14px;padding:13px;min-width:0}
+.laundry-overview__grid span{font-size:.75rem;color:var(--muted)}
+.laundry-overview__grid strong{overflow-wrap:anywhere;font-size:.9rem}
+.laundry-add{display:flex;gap:9px;margin-top:13px}
+.laundry-add input,.laundry-rename input{min-width:0;flex:1;border:1px solid #d8d9d2;border-radius:12px;padding:11px 12px;background:#fff;color:var(--ink)}
+.laundry-add .primary-button{width:auto;white-space:nowrap}
+.laundry-loads{display:grid;gap:10px;margin-top:13px}
+.laundry-load{display:grid;gap:12px;border:1px solid var(--border);background:#fdfdf9;border-radius:17px;padding:14px}
+.laundry-load__main{display:flex;align-items:flex-start;gap:11px;min-width:0}
+.laundry-load__icon{display:grid;place-items:center;background:var(--green-soft);border-radius:12px;width:42px;height:42px;flex:0 0 42px;font-size:1.45rem}
+.laundry-load__description{display:grid;gap:4px;flex:1;min-width:0}
+.laundry-load__description>span{color:var(--muted);font-size:.8rem}
+.laundry-load__description>small{color:#62736c;font-size:.73rem}
+.laundry-load__title{display:flex;align-items:center;gap:5px;min-width:0;overflow-wrap:anywhere}
+.laundry-load__title strong{min-width:0}
+.laundry-load__title button,.laundry-rename button{border:0;background:transparent;border-radius:8px;padding:5px;display:grid;place-items:center;cursor:pointer;color:#547260}
+.laundry-rename{display:flex;gap:3px;min-width:0}
+.laundry-rename input{width:100%;padding:5px 7px}
+.laundry-load__actions{display:flex;flex-wrap:wrap;gap:7px}
+.laundry-action{border:1px solid #cbd9c6;border-radius:11px;background:#fff;padding:9px 12px;min-height:40px;font-weight:750;color:#2d5943;cursor:pointer}
+.laundry-action--primary{background:var(--green-soft);border-color:#b6ceb0}
+.laundry-action:disabled{opacity:.55;cursor:wait}
+.laundry-note{padding:0 4px;line-height:1.5}
+@media(max-width:480px){
+  .laundry-page .phone-header h1{font-size:1.6rem}
+  .laundry-count{font-size:.65rem;padding:7px 9px}
+  .laundry-add{flex-direction:column}
+  .laundry-add .primary-button{width:100%}
+  .laundry-load{padding:12px}
+  .laundry-load__main>.pill{font-size:.58rem;padding:5px 7px}
+}
