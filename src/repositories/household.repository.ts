@@ -9,6 +9,7 @@ import type {
   Presence,
 } from '../app/types';
 import { todayKey } from '../lib/date';
+import type { LaundryAction } from '../features/laundry/laundry';
 
 const CACHE_KEY = 'feta.household.cache.v1';
 const DEVICE_KEY = 'feta.device.v1';
@@ -170,6 +171,30 @@ class HouseholdRepository {
     const state = await this.request<HouseholdState>(`/api/events/${encodeURIComponent(eventId)}`, {
       method: 'PATCH',
       body: JSON.stringify({ leftTooLong: true }),
+    });
+    this.cache(state);
+    return state;
+  }
+
+  async createLaundryLoad(personId: string, name?: string): Promise<HouseholdState> {
+    const state = await this.request<HouseholdState>('/api/laundry', {
+      method: 'POST', body: JSON.stringify({ personId, name }),
+    });
+    this.cache(state);
+    return state;
+  }
+
+  async renameLaundryLoad(id: string, personId: string, name: string): Promise<HouseholdState> {
+    const state = await this.request<HouseholdState>('/api/laundry/' + encodeURIComponent(id), {
+      method: 'PATCH', body: JSON.stringify({ personId, name }),
+    });
+    this.cache(state);
+    return state;
+  }
+
+  async transitionLaundryLoad(id: string, personId: string, action: LaundryAction): Promise<HouseholdState> {
+    const state = await this.request<HouseholdState>('/api/laundry/' + encodeURIComponent(id) + '/transition', {
+      method: 'POST', body: JSON.stringify({ personId, action }),
     });
     this.cache(state);
     return state;
