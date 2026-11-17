@@ -49,7 +49,9 @@ export async function migrateLegacyLaundry(db: D1Database, householdId: string):
     db.prepare(`INSERT OR IGNORE INTO flow_instances
       (id, household_id, flow_id, name, state_id, created_at, updated_at)
       SELECT 'legacy-laundry-' || household_id, household_id, 'laundry', 'Previous laundry load',
-        CASE state_id WHEN 'ready-to-dry' THEN 'wet' ELSE state_id END,
+        CASE state_id WHEN 'washing' THEN 'washing' WHEN 'ready-to-dry' THEN 'wet'
+        WHEN 'drying' THEN 'drying' WHEN 'ready-to-put-away' THEN 'ready-to-put-away'
+        ELSE 'waiting' END,
         updated_at, updated_at
       FROM flow_states
       WHERE household_id = ? AND flow_id = 'laundry' AND state_id != 'clear'`).bind(householdId),
