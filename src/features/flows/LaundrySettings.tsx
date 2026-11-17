@@ -20,8 +20,8 @@ export function LaundrySettings({
   const [drying, setDrying] = useState(hours(stageById(flow, 'drying').durationMinutes));
   const [wetReminder, setWetReminder] = useState(hours(stageById(flow, 'ready-to-dry').remindAfterMinutes));
   const [putAwayReminder, setPutAwayReminder] = useState(hours(stageById(flow, 'ready-to-put-away').remindAfterMinutes));
-  const [autoWash, setAutoWash] = useState(stageById(flow, 'washing').autoAdvance !== false);
-  const [autoDry, setAutoDry] = useState(stageById(flow, 'drying').autoAdvance !== false);
+  const [autoWash, setAutoWash] = useState(Boolean(stageById(flow, 'washing').autoAdvance));
+  const [autoDry, setAutoDry] = useState(Boolean(stageById(flow, 'drying').autoAdvance));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
