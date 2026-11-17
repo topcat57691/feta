@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
 import { selectJobAttention } from '../../features/cadence/cadence';
 import { flowDefinitions, flowTiming, getFlowStateDefinition } from '../../features/flows/flowDefinitions';
+import { laundryStats } from '../../features/laundry/laundry';
 
 const availabilities: Availability[] = ['in-zone','free','drained','out'];
 
@@ -58,6 +59,11 @@ export function MePage() {
 
     <Card className="did-card"><div className="section-heading"><div><h2>What did you do?</h2></div><span>Tap and carry on</span></div>
       <div className="action-list">
+        <Link to="/laundry" className="action-row laundry-quick-link">
+          <span className="action-row__icon">🧺</span>
+          <span><strong>Manage laundry loads</strong><small>{laundryStats(state.flowInstances ?? []).total} active · Washing, drying and waiting</small></span>
+          <span className="action-cta">Open</span>
+        </Link>
         {state.flowStates.map((flowState) => {
           const flow=(state.flows ?? flowDefinitions).find((candidate)=>candidate.id===flowState.flowId);
           if(!flow)return null;
