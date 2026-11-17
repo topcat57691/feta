@@ -80,7 +80,9 @@ describe('preview diary windows', () => {
 describe('preview household rhythm', () => {
   it('orders recent activity and near-term upcoming laundry cycles independently', () => {
     const old = new Date(now.getTime() - 75 * 60_000).toISOString();
-    const state = {
+    const state: HouseholdState = {
+      version: 1, householdId: 'test-household', householdName: 'Test', adminPinSet: true,
+      people: [], calendarEvents: [],
       jobs: [], events: [], flowEvents: [],
       flows: [{ id: 'laundry', name: 'Laundry', icon: '🧺',
         states: [{ id: 'washing', label: 'Washing', nextAction: 'Complete', durationMinutes: 180 }] }],
@@ -89,7 +91,7 @@ describe('preview household rhythm', () => {
         stateId: 'washing', createdAt: old, updatedAt: old }],
       flowInstanceEvents: [{ id: 'moved', instanceId: 'wash2', flowId: 'laundry', instanceName: 'Towels',
         fromStateId: 'washing', toStateId: 'wet', occurredAt: old, automatic: false }],
-    } as HouseholdState;
+    };
     const rhythm = buildRhythmMoments(state, now);
     expect(rhythm.recent.map((moment) => moment.label)).toEqual(['Towels']);
     expect(rhythm.next.map((moment) => moment.label)).toEqual(['Clothes']);
