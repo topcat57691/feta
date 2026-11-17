@@ -226,7 +226,7 @@ export function PreviewPage() {
   return <div className="preview-shell">
     <div className="preview-lab-header">
       <div><span className="preview-lab-header__icon"><FlaskConical size={19}/></span>
-        <div><strong>FETA Preview</strong><small>Experimental dashboard · private design workspace, not a separate environment</small></div>
+        <div><strong>FETA Preview</strong><small>Experimental dashboard · unlinked route, not a separate environment</small></div>
       </div>
       <div className="preview-lab-controls">
         <label>Data <select aria-label="Preview data" value={dataMode} onChange={(event) => setDataMode(event.target.value as DataMode)}>
