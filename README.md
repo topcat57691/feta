@@ -188,6 +188,31 @@ migration lives at `db/migrations/0003_google_calendar.sql`. The sync runs from 
 runtime, never from the browser. A disconnect clears saved credentials, cached events and FETA
 calendar completion history. No Google events are deleted.
 
+## Hidden /preview dashboard laboratory
+
+Visit `/preview` directly (for example,
+`https://feta.topcat57691.workers.dev/preview`) to review experimental dashboard
+components without changing the existing `/house` or `/display` layouts.
+
+- The route is **not linked from any navigation**, is marked `noindex` in the browser,
+  and its component/CSS are lazy-loaded; it remains accessible to anyone who knows the
+  URL. It is **not** an authenticated or private environment.
+- The preview reads the same production household payload as the live pages. No new
+  API routes, D1 migrations or writable state were introduced for the preview.
+  Like the existing House view, the ordinary household-state read can reconcile
+  elapsed automatic cycle stages on the backend.
+- The page offers real household data or clearly labelled local sample data, and
+  Auto / Phone / Wall layout modes. Wall mode can be scrolled horizontally on a phone.
+- The House section is state-first: active appliances/loads, recent actions and the
+  next 12 hours. The Diary section is date-grouped, chronological, non-overlapping
+  and shows five event slots (nine in wall layout) with native horizontal scrolling,
+  a fringe indicator and Earlier/Later navigation.
+- Same-day diary events share one discrete sizing tier. Priority and completion
+  controls on this experimental route change **only local React state**; they are
+  not persisted to FETA or Google Calendar.
+- New UI experiments should be implemented here first, without altering live
+  dashboard components until the design is deliberately promoted.
+
 ## Operational scope
 
 This is a family POC, not a multi-tenant SaaS. There is no dev/staging/prod database split, no user-account provider, and no separate API deployment. If FETA later becomes multi-household/public, authentication and household authorization should be revisited before expanding access.
