@@ -8,12 +8,14 @@ import { Pill } from '../../components/ui/Pill';
 import { laundryStates, laundryStats, laundryTiming, laundryTransitions, type LaundryAction, type LaundryState } from '../../features/laundry/laundry';
 
 function LoadRow({
-  load, busy, flow, now, onAction, onRename,
+  load, busy, flow, now, washerLoadId, dryerLoadId, onAction, onRename,
 }: {
   load: FlowInstance;
   busy: boolean;
   flow: FlowDefinition | undefined;
   now: Date;
+  washerLoadId?: string;
+  dryerLoadId?: string;
   onAction(action: LaundryAction): Promise<boolean>;
   onRename(name: string): Promise<boolean>;
 }) {
@@ -47,9 +49,16 @@ function LoadRow({
       {timer.reminderDue && <Pill tone="amber">Gentle nudge</Pill>}
     </div>
     <div className="laundry-load__actions">
-      {actions.map((choice, index) => <button key={choice.action} type="button"
-        className={index === 0 ? 'laundry-action laundry-action--primary' : 'laundry-action'}
-        disabled={busy} onClick={() => void onAction(choice.action)}>{choice.label}</button>)}
+      {actions.map((choice, index) => {
+        const blocked = Boolean(choice.to === 'washing' && washerLoadId && washerLoadId !== load.id ||
+          choice.to === 'drying' && dryerLoadId && dryerLoadId !== load.id);
+        return <button key={choice.action} type="button"
+          className={index === 0 ? 'laundry-action laundry-action--primary' : 'laundry-action'}
+          disabled={busy || blocked} onClick={() => void onAction(choice.action)}
+          title={blocked ? 'Unload the current appliance first' : undefined}>
+          {blocked ? choice.to === 'washing' ? 'Washer occupied' : 'Dryer occupied' : choice.label}
+        </button>;
+      })}
     </div>
   </div>;
 }
@@ -119,7 +128,7 @@ export function LaundryPage() {
       <Card className="laundry-loads-card">
         <h2>Loads in progress</h2>
         {sorted.length === 0 ? <p className="muted">Nothing on the go. Enjoy the empty laundry basket!</p> : <div className="laundry-loads">
-          {sorted.map((load) => <LoadRow key={load.id} load={load} flow={flow} now={now} busy={busy !== null}
+          {sorted.map((load) => <LoadRow key={load.id} load={load} flow={flow} now={now} busy={busy !== null} washerLoadId={stats.washing?.id} dryerLoadId={stats.drying?.id}
             onAction={(selected) => action(load.id, () => store.transitionLaundryLoad(load.id, person.id, selected))}
             onRename={(value) => action(load.id, () => store.renameLaundryLoad(load.id, person.id, value))}/>)}
         </div>}
