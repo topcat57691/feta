@@ -9,6 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
 import { formatCadence } from '../../lib/date';
 import { FlowEditor } from '../../features/flows/FlowEditor';
+import { LaundrySettings } from '../../features/flows/LaundrySettings';
 import { flowDefinitions } from '../../features/flows/flowDefinitions';
 
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -56,7 +57,7 @@ function AdminContent() {
     {personOpen&&<Modal title="Add a person" onClose={()=>setPersonOpen(false)}><div className="form-stack"><label>Name<input value={personName} onChange={(e)=>setPersonName(e.target.value)}/></label><label>4-digit PIN<input inputMode="numeric" maxLength={4} value={personPin} onChange={(e)=>setPersonPin(e.target.value.replace(/\D/g,''))}/></label><button className="primary-button" disabled={!personName.trim()||personPin.length!==4} onClick={async()=>{try{await store.addPerson(personName,personPin);setPersonOpen(false);setPersonName('');setPersonPin('');}catch(caught){setError(caught instanceof Error?caught.message:'Could not add that person.');}}}>Add person</button></div></Modal>}
     {editingJob&&<JobEditor job={editingJob} onClose={()=>setEditingJob(null)} onSave={async(patch)=>{await store.updateJob(editingJob.id,patch);setEditingJob(null);}}/>}
     {addingFlow&&<FlowEditor onClose={()=>setAddingFlow(false)} onSave={async(flow)=>{await store.addFlow(flow);setAddingFlow(false);}}/>}
-    {editingFlow&&<FlowEditor flow={editingFlow} onClose={()=>setEditingFlow(null)} onSave={async(flow)=>{await store.updateFlow(editingFlow.id,flow);setEditingFlow(null);}} onDelete={flowDefinitions.some((flow)=>flow.id===editingFlow.id)?undefined:async()=>{await store.deleteFlow(editingFlow.id);setEditingFlow(null);}}/>}
+    {editingFlow&& (editingFlow.id === 'laundry' ? <LaundrySettings flow={editingFlow} onClose={()=>setEditingFlow(null)} onSave={async(flow)=>{await store.updateFlow(editingFlow.id,flow);setEditingFlow(null);}}/> : <FlowEditor flow={editingFlow} onClose={()=>setEditingFlow(null)} onSave={async(flow)=>{await store.updateFlow(editingFlow.id,flow);setEditingFlow(null);}} onDelete={flowDefinitions.some((flow)=>flow.id===editingFlow.id)?undefined:async()=>{await store.deleteFlow(editingFlow.id);setEditingFlow(null);}}/>)}
   </div>;
 }
 
