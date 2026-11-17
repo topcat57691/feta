@@ -14,11 +14,12 @@ function LoadRow({
   busy: boolean;
   flow: FlowDefinition | undefined;
   now: Date;
-  onAction(action: LaundryAction): Promise<void>;
-  onRename(name: string): Promise<void>;
+  onAction(action: LaundryAction): Promise<boolean>;
+  onRename(name: string): Promise<boolean>;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(load.name);
+  useEffect(() => { if (!editing) setName(load.name); }, [load.name, editing]);
   const stage = laundryStates[load.stateId as LaundryState];
   if (!stage) return null;
   const timer = laundryTiming(load, flow, now);
@@ -34,7 +35,7 @@ function LoadRow({
       <div className="laundry-load__description">
         {editing ? <form className="laundry-rename" onSubmit={(event) => {
           event.preventDefault();
-          void onRename(name).then(() => setEditing(false));
+          void onRename(name).then((saved) => { if (saved) setEditing(false); });
         }}>
           <input autoFocus aria-label="Load name" maxLength={70} value={name} onChange={(event) => setName(event.target.value)} />
           <button aria-label="Save name" type="submit" disabled={busy || !name.trim()}><Check size={17}/></button>
@@ -79,10 +80,11 @@ export function LaundryPage() {
   async function action(id: string, perform: () => Promise<void>) {
     setBusy(id);
     setError('');
-    try { await perform(); }
+    try { await perform(); return true; }
     catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not update that load.');
       await store.refresh();
+      return false;
     } finally { setBusy(null); }
   }
 
