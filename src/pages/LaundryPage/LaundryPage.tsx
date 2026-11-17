@@ -2,17 +2,17 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, Pencil, Plus, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAppStore } from '../../app/store';
-import type { FlowInstance } from '../../app/types';
+import type { FlowDefinition, FlowInstance } from '../../app/types';
 import { Card } from '../../components/ui/Card';
 import { Pill } from '../../components/ui/Pill';
-import { laundryStates, laundryStats, laundryTiming, laundryTransitions, occupiedAppliance, type LaundryAction, type LaundryState } from '../../features/laundry/laundry';
+import { laundryStates, laundryStats, laundryTiming, laundryTransitions, type LaundryAction, type LaundryState } from '../../features/laundry/laundry';
 
 function LoadRow({
   load, busy, flow, now, onAction, onRename,
 }: {
   load: FlowInstance;
   busy: boolean;
-  flow: NonNullable<ReturnType<typeof useAppStore>['state']>['flows'][number] | undefined;
+  flow: FlowDefinition | undefined;
   now: Date;
   onAction(action: LaundryAction): Promise<void>;
   onRename(name: string): Promise<void>;
