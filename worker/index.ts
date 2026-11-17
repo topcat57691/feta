@@ -24,6 +24,8 @@ import { createPinSalt, hashPin, validPin, verifyPin } from './pin';
 import { ensureSchema } from './schema';
 import type { D1Database, Env } from './types';
 import { completeCalendarEvent, handleCalendarRequest, syncCalendars } from './calendar';
+import { createLaundryLoad, renameLaundryLoad, transitionLaundryLoad } from './laundry';
+import type { LaundryAction } from '../src/features/laundry/laundry';
 
 const DEFAULT_COLOR = '#bdd7ec';
 
@@ -237,6 +239,39 @@ export default {
         return stateResponse(db, request);
       }
 
+      // Laundry loads are individual instances, not a single appliance state.
+      if (request.method === 'POST' && path === '/api/laundry') {
+        const household = await findHousehold(db);
+        if (!household) return error(404, 'HOUSEHOLD_MISSING', 'Set up a household first.');
+        const input = await body<{ personId?: string; name?: unknown }>(request);
+        if (!input.personId) return error(400, 'PERSON_REQUIRED', 'Choose your profile first.');
+        if (input.name !== undefined && typeof input.name !== 'string') return error(400, 'LAUNDRY_NAME_INVALID', 'Use a short load name.');
+        await createLaundryLoad(db, household.id, input.personId, input.name);
+        return stateResponse(db, request);
+      }
+
+      const laundryMatch = path.match(/^\/api\/laundry\/([^/]+)$/);
+      if (request.method === 'PATCH' && laundryMatch) {
+        const household = await findHousehold(db);
+        if (!household) return error(404, 'HOUSEHOLD_MISSING', 'Set up a household first.');
+        const input = await body<{ personId?: string; name?: unknown }>(request);
+        if (!input.personId) return error(400, 'PERSON_REQUIRED', 'Choose your profile first.');
+        if (typeof input.name !== 'string') return error(400, 'LAUNDRY_NAME_INVALID', 'A load name is required.');
+        await renameLaundryLoad(db, household.id, input.personId, laundryMatch[1], input.name);
+        return stateResponse(db, request);
+      }
+
+      const laundryTransition = path.match(/^\/api\/laundry\/([^/]+)\/transition$/);
+      if (request.method === 'POST' && laundryTransition) {
+        const household = await findHousehold(db);
+        if (!household) return error(404, 'HOUSEHOLD_MISSING', 'Set up a household first.');
+        const input = await body<{ personId?: string; action?: LaundryAction }>(request);
+        if (!input.personId) return error(400, 'PERSON_REQUIRED', 'Choose your profile first.');
+        if (!input.action || typeof input.action !== 'string') return error(400, 'LAUNDRY_TRANSITION_INVALID', 'Choose a load action.');
+        await transitionLaundryLoad(db, household.id, input.personId, laundryTransition[1], input.action);
+        return stateResponse(db, request);
+      }
+
       // Cycle definitions are protected by the existing administrator PIN.
       if (path === '/api/flows' && request.method === 'POST' ||
           /^\/api\/flows\/[^/]+$/.test(path) && ['PUT', 'DELETE'].includes(request.method)) {
@@ -303,6 +338,13 @@ export default {
         return error(409, message, 'An admin PIN has already been configured.');
       }
       if (message === 'INVALID_JSON') return error(400, message, 'Expected a JSON request body.');
+      if (message === 'LAUNDRY_NAME_INVALID' || message === 'LAUNDRY_TRANSITION_INVALID') return error(400, message, 'Check the load name or action.');
+      if (message === 'LAUNDRY_NOT_FOUND' || message === 'PERSON_NOT_FOUND') return error(404, message, 'The load or person could not be found.');
+      if (message === 'LAUNDRY_STALE') return error(409, message, 'This load has changed. Refresh and try again.');
+      if (message === 'APPLIANCE_BUSY' || message.includes('UNIQUE constraint failed: flow_instances.household_id')) {
+        return error(409, 'APPLIANCE_BUSY', 'That appliance is occupied. Unload the current load first.');
+      }
+      if (message === 'LAUNDRY_USE_LOADS') return error(400, message, 'Manage individual loads on the Laundry screen.');
       if (message === 'FLOW_INVALID') return error(400, message, 'Check the cycle stages, labels and timers.');
       if (message === 'FLOW_NOT_FOUND') return error(404, message, 'That cycle could not be found.');
       if (message === 'FLOW_PROTECTED') return error(400, message, 'Built-in cycles cannot be deleted.');
