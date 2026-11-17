@@ -7,6 +7,7 @@ import { WhoPage } from '../pages/WhoPage/WhoPage';
 import { MePage } from '../pages/MePage/MePage';
 import { HousePage } from '../pages/HousePage/HousePage';
 import { AdminPage } from '../pages/AdminPage/AdminPage';
+import { LaundryPage } from '../pages/LaundryPage/LaundryPage';
 import { Card } from '../components/ui/Card';
 
 export function App() {
@@ -31,6 +32,7 @@ export function App() {
     <Route element={<AppShell/>}>
       <Route path="/me" element={<MePage/>}/>
       <Route path="/house" element={<HousePage/>}/>
+      <Route path="/laundry" element={<LaundryPage/>}/>
       <Route path="/admin" element={<AdminPage/>}/>
     </Route>
     <Route path="/" element={<Navigate to="/house" replace/>}/>
