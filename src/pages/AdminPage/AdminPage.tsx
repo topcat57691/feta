@@ -45,7 +45,7 @@ function AdminContent() {
       <p className="helper-copy">Make household states your own. Set durations and gentle reminders for each stage.</p>
       <div className="admin-list">{(state.flows ?? flowDefinitions).map((flow)=><div className="admin-row" key={flow.id}>
         <span className="admin-row__icon">{flow.icon}</span>
-        <button className="admin-row__main" onClick={()=>setEditingFlow(flow)}><strong>{flow.name}</strong><small>{flow.states.length} stages · {flow.states.filter(s=>s.durationMinutes).length} timed</small></button>
+        <button className="admin-row__main" onClick={()=>setEditingFlow(flow)}><strong>{flow.name}</strong><small>{flow.id === 'laundry' ? 'Multiple loads · timers and gentle reminders' : flow.states.length + ' stages · ' + flow.states.filter(s=>s.durationMinutes).length + ' timed'}</small></button>
         <button className="row-edit" onClick={()=>setEditingFlow(flow)} aria-label={'Edit ' + flow.name}><Pencil/></button>
       </div>)}</div>
     </Card>
