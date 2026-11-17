@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Database, RefreshCw } from 'lucide-react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAppStore } from './store';
@@ -9,6 +10,9 @@ import { HousePage } from '../pages/HousePage/HousePage';
 import { AdminPage } from '../pages/AdminPage/AdminPage';
 import { LaundryPage } from '../pages/LaundryPage/LaundryPage';
 import { Card } from '../components/ui/Card';
+
+// Loaded only on a direct /preview visit; no entry in app navigation.
+const PreviewPage = lazy(() => import('../pages/PreviewPage/PreviewPage').then((module) => ({ default: module.PreviewPage })));
 
 export function App() {
   const { state, ready, error, refresh } = useAppStore();
@@ -28,6 +32,7 @@ export function App() {
 
   return <Routes>
     <Route path="/display" element={<HousePage/>}/>
+    <Route path="/preview" element={<Suspense fallback={<div className="loading-page">Opening preview…</div>}><PreviewPage/></Suspense>}/>
     <Route path="/who" element={<WhoPage/>}/>
     <Route element={<AppShell/>}>
       <Route path="/me" element={<MePage/>}/>
