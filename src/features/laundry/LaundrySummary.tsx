@@ -25,8 +25,8 @@ export function LaundrySummary({
       {interactive && <Link to="/laundry" className="laundry-summary__link">View loads</Link>}
     </div>
     {stats.total > 0 && <div className="laundry-summary__grid">
-      <div><span>🫧 Washer</span><strong>{applianceDetail(stats.washing)}</strong></div>
-      <div><span>🌬️ Dryer</span><strong>{applianceDetail(stats.drying)}</strong></div>
+      <div><span>🫧 Washer</span><strong>{stats.washing?.name ?? 'Available'}</strong>{stats.washing && <small>{applianceDetail(stats.washing)}</small>}</div>
+      <div><span>🌬️ Dryer</span><strong>{stats.drying?.name ?? 'Available'}</strong>{stats.drying && <small>{applianceDetail(stats.drying)}</small>}</div>
       <div><span>💧 Wet</span><strong>{stats.wet}</strong></div>
       <div><span>👕 To put away</span><strong>{stats.ready}</strong></div>
     </div>}
