@@ -69,7 +69,7 @@ describe('preview diary windows', () => {
   });
 
   it('hides past events while preserving an ongoing appointment', () => {
-    const ongoing = timed(17, 11, 'ongoing');
+    const ongoing = { ...timed(17, 11, 'ongoing'), endsAt: '2026-11-17T13:00:00.000Z' };
     const past = timed(17, 9, 'past');
     const far = timed(31, 10, 'far');
     const listed = nextDiaryEvents([far, past, ongoing], now, 7);
