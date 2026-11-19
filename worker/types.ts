@@ -17,6 +17,12 @@ export interface AssetFetcher {
 export interface Env {
   DB?: D1Database;
   ASSETS: AssetFetcher;
+  AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
+  EMAIL_REVIEW_ACCESS_KEY?: string;
+  MICROSOFT_CLIENT_ID?: string;
+  MICROSOFT_CLIENT_SECRET?: string;
+  MICROSOFT_TOKEN_ENCRYPTION_KEY?: string;
+  MICROSOFT_SCHOOL_FOLDER_ID?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   GOOGLE_TOKEN_ENCRYPTION_KEY?: string;
