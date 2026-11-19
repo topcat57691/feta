@@ -6,6 +6,7 @@ import { flowDefinitions } from '../../features/flows/flowDefinitions';
 import { buildDiaryWindow, buildRhythmMoments, buildRhythmTiles, diaryDayLabel } from '../../features/preview/previewModel';
 import { PersonCard } from '../../features/people/components/PersonCard';
 import './preview.css';
+import { EmailReviewPanel } from './EmailReviewPanel';
 
 type LayoutMode = 'auto' | 'phone' | 'wall';
 type DataMode = 'live' | 'sample';
@@ -253,7 +254,8 @@ export function PreviewPage() {
           <Snapshot state={view} now={now}/>
           <Diary state={view} now={now} slots={slots} dataMode={dataMode}/>
         </div>
-        <p className="preview-disclaimer">Prototype only. Nothing on this page saves changes. Your existing /house and /display screens are unchanged.</p>
+        <EmailReviewPanel key={dataMode} sampleMode={dataMode === 'sample'}/>
+        <p className="preview-disclaimer">Dashboard experiments are local only. Real email review saves private approvals, but never changes your live screens or Google Calendar.</p>
       </main>
     </div>
   </div>;
