@@ -90,7 +90,8 @@ export function HistoryPanel({ state, data, now, undo }: {
   const [filter, setFilter] = useState<'all' | HistoryItem['kind']>('all');
   const [limit, setLimit] = useState(30);
   const [announcement, setAnnouncement] = useState('');
-  const rows = buildPreviewHistory(state, data, now).filter((row) => filter === 'all' || row.kind === filter);
+  const historyNow = new Date(Math.max(now.getTime(), Date.now()));
+  const rows = buildPreviewHistory(state, data, historyNow).filter((row) => filter === 'all' || row.kind === filter);
   const icons = { todo: ListTodo, calendar: CalendarDays, household: Home };
   const groups = new Map<string, HistoryItem[]>();
   for (const row of rows.slice(0, limit)) {
