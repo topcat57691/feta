@@ -27,6 +27,8 @@ import { completeCalendarEvent, handleCalendarRequest, syncCalendars } from './c
 import { createLaundryLoad, renameLaundryLoad, transitionLaundryLoad } from './laundry';
 import type { LaundryAction } from '../src/features/laundry/laundry';
 
+import { handleEmailReview, syncEmailReview } from './emailReview';
+
 const DEFAULT_COLOR = '#bdd7ec';
 
 function json(data: unknown, status = 200): Response {
@@ -103,6 +105,10 @@ export default {
       stage = 'schema:ensure';
       await ensureSchema(db);
 
+      if (path === '/api/preview/email-review' || path.startsWith('/api/preview/email-review/')) {
+        stage = 'email-review:integration';
+        return await handleEmailReview(request, env, db);
+      }
       if (path.startsWith('/api/integrations/google-calendar/')) {
         stage = 'calendar:integration';
         return await handleCalendarRequest(request, env, db, ctx);
@@ -368,6 +374,7 @@ export default {
   async scheduled(_controller: unknown, env: Env): Promise<void> {
     if (!env.DB) return;
     await ensureSchema(env.DB);
-    await syncCalendars(env.DB, env);
+    try { await syncCalendars(env.DB, env); }
+    finally { await syncEmailReview(env.DB, env); }
   },
 };
