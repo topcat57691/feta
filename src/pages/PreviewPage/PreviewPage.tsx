@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, FlaskConical, Home, Star } from 'lucide-react';
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, FlaskConical, Home, Star, History } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { TodoPanel, HistoryPanel, usePreviewData } from '../../features/preview/PreviewTasksPanel';
+import { activeCalendar, calendarKey, type CalendarMarks } from '../../features/preview/previewTasks';
 import { useAppStore } from '../../app/store';
 import type { CalendarEvent, HouseholdState, Person } from '../../app/types';
 import { flowDefinitions } from '../../features/flows/flowDefinitions';
@@ -45,12 +48,14 @@ function makeSampleState(state: HouseholdState, now: Date): HouseholdState {
       load('sample-dry', 'Towels', 'drying', 28),
       load('sample-wet', 'Bedding', 'wet', 65),
       load('sample-ready', 'School uniform', 'ready-to-put-away', 130),
+      { ...load('sample-done', 'Tea towels', 'clear', 210), completedAt: earlier(210) },
     ],
     flowInstanceEvents: [{
       id: 'sample-move', instanceId: 'sample-wet', flowId: 'laundry', instanceName: 'Bedding',
       fromStateId: 'wash-complete', toStateId: 'wet', occurredAt: earlier(65), automatic: false,
     }],
     calendarEvents: [
+      makeSampleEvent(-1, 16, 0, 'Pick up school supplies', 'past-example', now),
       makeSampleEvent(1, 8, 0, 'Morning medication', 'med-1', now),
       makeSampleEvent(1, 16, 30, 'Swimming lesson', 'swim-1', now),
       makeSampleEvent(2, 10, 30, 'Dentist appointment', 'dentist', now),
@@ -70,7 +75,7 @@ function timeLabel(event: CalendarEvent): string {
 }
 
 function eventKey(event: CalendarEvent): string {
-  return event.calendarId + '::' + event.eventId;
+  return calendarKey(event);
 }
 
 function Snapshot({ state, now }: { state: HouseholdState; now: Date }) {
@@ -91,15 +96,7 @@ function Snapshot({ state, now }: { state: HouseholdState; now: Date }) {
       {tiles.length > tileLimit && <div className="preview-snapshot__extra">+{tiles.length - tileLimit} more states</div>}
       {!tiles.length && <p className="preview-empty">Nothing on the go. The house is calm.</p>}
     </div>
-    <div className="preview-rhythm" aria-label="Recent and upcoming household activity">
-      <div className="preview-rhythm__column">
-        <h3>Recently</h3>
-        {moments.recent.map((item) => <div className="preview-rhythm__moment" key={item.id}>
-          <span aria-hidden="true">{item.icon}</span><div><strong>{item.label}</strong><small>{item.detail} · {new Date(item.at).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})}</small></div>
-        </div>)}
-        {!moments.recent.length && <small className="preview-muted">No changes in the last 3 hours</small>}
-      </div>
-      <div className="preview-rhythm__now"><span>NOW</span><Clock3 size={21}/></div>
+    <div className="preview-rhythm preview-rhythm--forward" aria-label="Upcoming household activity">
       <div className="preview-rhythm__column">
         <h3>Next 12 hours</h3>
         {moments.next.map((item) => <div className="preview-rhythm__moment" key={item.id}>
@@ -112,20 +109,20 @@ function Snapshot({ state, now }: { state: HouseholdState; now: Date }) {
 }
 
 function Diary({
-  state, now, slots, dataMode,
+  state, now, slots, dataMode, calendarMarks, markCalendar,
 }: {
   state: HouseholdState; now: Date; slots: number; dataMode: DataMode;
+  calendarMarks: CalendarMarks; markCalendar: (id: string) => void;
 }) {
   const [offset, setOffset] = useState(0);
-  const [completed, setCompleted] = useState<Record<string, boolean>>({});
   const [important, setImportant] = useState<Record<string, boolean>>({});
   const rail = useRef<HTMLDivElement>(null);
   const view = useMemo(
-    () => buildDiaryWindow(state.calendarEvents ?? [], now, offset, slots),
-    [state.calendarEvents, now, offset, slots],
+    () => buildDiaryWindow(activeCalendar(state.calendarEvents ?? [], calendarMarks), now, offset, slots),
+    [state.calendarEvents, calendarMarks, now, offset, slots],
   );
   useEffect(() => { rail.current?.scrollTo({ left: 0, behavior: 'auto' }); }, [offset, slots, dataMode]);
-  useEffect(() => { setOffset(0); setCompleted({}); setImportant({}); }, [dataMode]);
+  useEffect(() => { setOffset(0); setImportant({}); }, [dataMode]);
   const later = () => setOffset((current) => Math.min(current + slots, Math.max(0, view.total - 1)));
   const earlier = () => setOffset((current) => Math.max(0, current - slots));
   const dateText = (key: string) => {
@@ -152,9 +149,8 @@ function Diary({
         <div className="preview-diary__cards">
           {group.events.map((event) => {
             const id = eventKey(event);
-            const done = completed[id] ?? Boolean(event.completedAt);
             const flagged = important[id] ?? false;
-            return <article className={'preview-diary__event' + (done ? ' preview-diary__event--done' : '')} key={id}
+            return <article className="preview-diary__event" key={id}
               style={{ borderLeftColor: event.color || '#91b8c9' }}>
               <div className="preview-diary__event-time">{timeLabel(event)} <span>· {event.calendarName}</span></div>
               <strong>{event.title}</strong>
@@ -164,10 +160,9 @@ function Diary({
                   title="Preview priority only — not saved" onClick={() => setImportant((old) => ({...old, [id]: !flagged}))}>
                   <Star size={14} fill={flagged ? 'currentColor' : 'none'}/><span>{flagged ? 'Important' : 'Priority'}</span>
                 </button>
-                <button type="button" className={done ? 'is-active' : ''} aria-pressed={done}
-                  aria-label={(done ? 'Undo preview completion: ' : 'Preview complete: ') + event.title}
-                  title="Preview completion only — not saved" onClick={() => setCompleted((old) => ({ ...old, [id]: !done }))}>
-                  <Check size={14}/><span>{done ? 'Done' : 'Mark done'}</span>
+                <button type="button" aria-label={'Preview complete: ' + event.title}
+                  title="Move to preview History" onClick={() => { markCalendar(id); setOffset(0); }}>
+                  <Check size={14}/><span>Mark done</span>
                 </button>
               </div>
             </article>;
@@ -188,8 +183,36 @@ function Diary({
       <span>{view.shown} fixed event slots · same-day cards match</span>
       <button type="button" onClick={later} disabled={view.remaining === 0}>Later <ChevronRight size={17}/></button>
     </div>
-    <p className="preview-footnote">Priority and Done are local visual experiments here. They do not change your real calendar or FETA completion history.</p>
+    <p className="preview-footnote">Mark done moves an event to preview History only. Your real calendar is unchanged.</p>
   </section>;
+}
+
+function PreviewDashboard({ view, now, slots, mode, dataMode }: {
+  view: HouseholdState; now: Date; slots: number; mode: LayoutMode; dataMode: DataMode;
+}) {
+  const [search] = useSearchParams();
+  const history = search.get('view') === 'history';
+  const { data, storageError, add, complete, markCalendar, undo } = usePreviewData('feta.preview.tasks.v1:' + view.householdId + ':' + dataMode, dataMode === 'sample');
+  return <main className={'preview-stage preview-stage--' + mode}>
+    <header className="preview-dashboard-header">
+      <div><span className="preview-brand"><Home size={23}/></span>
+        <div><span className="preview-dashboard-eyebrow">{dataMode === 'sample' ? 'Example · not your real data' : 'Household · live read-only data'}</span>
+          <h1>{view.householdName}</h1></div></div>
+      <div className="preview-header-tools"><div className="preview-clock"><Clock3 size={17}/><span>{now.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} · {now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span></div>
+        <Link className="preview-history-link" to={history ? '/preview' : '/preview?view=history'}>{history ? <Home size={17}/> : <History size={17}/>} {history ? 'Dashboard' : 'History'}</Link>
+      </div>
+    </header>
+    {storageError && <p role="status" className="preview-footnote">Browser storage is unavailable. Preview edits will be lost on refresh.</p>}
+    {history ? <HistoryPanel state={view} data={data} now={now} undo={undo}/> : <>
+      <div className="preview-people" aria-label="Household members">{view.people.map((person) => <PersonCard key={person.id} person={person} compact />)}</div>
+      <div className="preview-dashboard-grid">
+        <Snapshot state={view} now={now}/>
+        <TodoPanel todos={data.todos} add={add} complete={complete}/>
+        <Diary state={view} now={now} slots={slots} dataMode={dataMode} calendarMarks={data.calendarMarks} markCalendar={markCalendar}/>
+      </div>
+    </>}
+    <p className="preview-disclaimer">Prototype only. To-dos and calendar check-offs are saved in this browser, not shared across devices. Your existing /house and /display screens are unchanged.</p>
+  </main>;
 }
 
 export function PreviewPage() {
@@ -238,23 +261,7 @@ export function PreviewPage() {
       </div>
     </div>
     <div className="preview-viewport">
-      <main className={'preview-stage preview-stage--' + mode}>
-        <header className="preview-dashboard-header">
-          <div><span className="preview-brand"><Home size={23}/></span>
-            <div><span className="preview-dashboard-eyebrow">{dataMode === 'sample' ? 'Example · not your real data' : 'Household · live read-only data'}</span>
-              <h1>{view.householdName}</h1></div>
-          </div>
-          <div className="preview-clock"><Clock3 size={17}/><span>{now.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})} · {now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span></div>
-        </header>
-        <div className="preview-people" aria-label="Household members">
-          {view.people.map((person) => <PersonCard key={person.id} person={person} compact />)}
-        </div>
-        <div className="preview-dashboard-grid">
-          <Snapshot state={view} now={now}/>
-          <Diary state={view} now={now} slots={slots} dataMode={dataMode}/>
-        </div>
-        <p className="preview-disclaimer">Prototype only. Nothing on this page saves changes. Your existing /house and /display screens are unchanged.</p>
-      </main>
+      <PreviewDashboard key={view.householdId + ':' + dataMode} view={view} now={now} slots={slots} mode={mode} dataMode={dataMode}/>
     </div>
   </div>;
 }
