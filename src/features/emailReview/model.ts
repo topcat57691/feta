@@ -10,7 +10,9 @@ export interface EmailReview {
   status: 'pending' | 'reviewed';
 }
 export function allowedSender(address: string, subject: string, preview = ''): boolean {
-  const domain = address.toLowerCase().trim().split('@').pop();
+  const normalized = address.toLowerCase().trim();
+  if (normalized === 'password-reset@arbor-education.com') return false;
+  const domain = normalized.split('@').pop();
   if (/password|passcode|verification code|security code|one.time code|account activat|activate your|create your .*login|sign.in code|reset your|magic link/i.test(subject + ' ' + preview)) return false;
   return domain === 'abbeyfarmet.org.uk' || domain === 'tapestryjournal.com' ||
     domain === 'arbor-education.com' ||
